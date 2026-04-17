@@ -1,0 +1,77 @@
+<?php
+/**
+ * DELETE /api/tours-delete.php
+ * Delete a tour (admin only)
+ */
+
+require_once __DIR__ . '/../../config.php';
+
+try {
+    // Get the request method
+    $method = $_SERVER['REQUEST_METHOD'];
+    
+    // Get JSON body once
+    $body = json_decode(file_get_contents('php://input'), true);
+    
+    if (!$body) {
+        sendJSON(['success' => false, 'error' => 'Invalid JSON body'], 400);
+    }
+    
+    // Support both DELETE and POST with _method=DELETE for compatibility
+    if ($method === 'POST' && isset($body['_method'])) {
+        $method = $body['_method'];
+    }
+    
+    if ($method !== 'DELETE' && $method !== 'POST') {
+        sendJSON(['success' => false, 'error' => 'Method not allowed'], 405);
+    }
+    
+    $id = $body['id'] ?? null;
+    
+    if (!$id) {
+        sendJSON(['success' => false, 'error' => 'Tour ID is required'], 400);
+    }
+    
+    $conn = getDB();
+    
+    // Check if tour exists
+    $checkSql = "SELECT id FROM tours WHERE id = ?";
+    $checkStmt = $conn->prepare($checkSql);
+    $checkStmt->bind_param('i', $id);
+    $checkStmt->execute();
+    $checkResult = $checkStmt->get_result();
+    
+    if ($checkResult->num_rows === 0) {
+        sendJSON(['success' => false, 'error' => 'Tour not found'], 404);
+    }
+    $checkStmt->close();
+    
+    // Delete the tour
+    $deleteSql = "DELETE FROM tours WHERE id = ?";
+    $deleteStmt = $conn->prepare($deleteSql);
+    
+    if (!$deleteStmt) {
+        sendJSON(['success' => false, 'error' => 'Query prepare failed'], 500);
+    }
+    
+    $deleteStmt->bind_param('i', $id);
+    
+    if (!$deleteStmt->execute()) {
+        sendJSON(['success' => false, 'error' => 'Failed to delete tour'], 500);
+    }
+    
+    $deleteStmt->close();
+    $conn->close();
+    
+    sendJSON([
+        'success' => true,
+        'message' => 'Tour deleted successfully'
+    ]);
+    
+} catch (Exception $e) {
+    sendJSON([
+        'success' => false,
+        'error' => $e->getMessage()
+    ], 500);
+}
+?>

@@ -1,0 +1,79 @@
+<?php
+/**
+ * GET /api/promo-codes-list.php
+ * List all active promo codes
+ */
+
+require_once __DIR__ . '/../../config.php';
+
+// Additional CORS headers for this endpoint
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+
+try {
+    if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+        sendJSON(['success' => false, 'error' => 'Method not allowed'], 405);
+    }
+    
+    $conn = getDB();
+    
+    $sql = "SELECT 
+                id,
+                code,
+                description,
+                discount_type,
+                discount_value,
+                max_uses,
+                current_uses,
+                valid_from,
+                valid_until,
+                min_booking_amount,
+                max_discount_amount,
+                is_active,
+                created_at,
+                updated_at
+            FROM promo_codes 
+            WHERE (deleted_at IS NULL OR deleted_at = '0000-00-00 00:00:00')
+            ORDER BY is_active DESC, created_at DESC";
+    
+    $result = $conn->query($sql);
+    
+    if (!$result) {
+        sendJSON(['success' => false, 'error' => 'Query failed: ' . $conn->error], 500);
+    }
+    
+    $codes = [];
+    while ($row = $result->fetch_assoc()) {
+        $codes[] = [
+            'id' => (int) $row['id'],
+            'code' => $row['code'],
+            'description' => $row['description'],
+            'discount_type' => $row['discount_type'],
+            'discount_value' => (float) $row['discount_value'],
+            'max_uses' => $row['max_uses'] ? (int) $row['max_uses'] : null,
+            'current_uses' => (int) $row['current_uses'],
+            'valid_from' => $row['valid_from'],
+            'valid_until' => $row['valid_until'],
+            'min_booking_amount' => (float) $row['min_booking_amount'],
+            'max_discount_amount' => $row['max_discount_amount'] ? (float) $row['max_discount_amount'] : null,
+            'is_active' => (bool) $row['is_active'],
+            'created_at' => $row['created_at'],
+            'updated_at' => $row['updated_at']
+        ];
+    }
+    
+    $conn->close();
+    
+    sendJSON([
+        'success' => true,
+        'data' => $codes
+    ]);
+    
+} catch (Exception $e) {
+    sendJSON([
+        'success' => false,
+        'error' => $e->getMessage()
+    ], 500);
+}
+?>

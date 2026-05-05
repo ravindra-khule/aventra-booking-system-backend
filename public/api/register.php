@@ -1,4 +1,19 @@
 <?php
+// ⚠️ CORS and Content-Type headers MUST be set first, before any output
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS, PATCH');
+header('Access-Control-Allow-Headers: Origin, Content-Type, Authorization, X-Requested-With, Accept');
+header('Access-Control-Max-Age: 86400');
+header('Access-Control-Allow-Credentials: false');
+header('Content-Type: application/json; charset=UTF-8');
+
+// Handle CORS preflight requests
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    echo json_encode(['success' => true, 'message' => 'CORS preflight OK']);
+    exit;
+}
+
 /**
  * POST /api/register.php
  * Create a new user account (admin only in real scenario)

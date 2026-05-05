@@ -4,55 +4,118 @@
  * Update these with your Hostinger credentials
  */
 
-// Enable CORS - allow requests from any origin during development
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS, PATCH');
-header('Access-Control-Allow-Headers: Origin, Content-Type, Authorization, X-Requested-With, Accept');
-header('Access-Control-Max-Age: 86400'); // Cache preflight for 24 hours
-header('Access-Control-Allow-Credentials: false');
-
-// Handle CORS preflight requests
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit;
-}
-
-define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
-define('DB_USER', getenv('DB_USER') ?: 'root');
-define('DB_PASS', getenv('DB_PASS') ?: '');
-define('DB_NAME', getenv('DB_NAME') ?: 'aventra_db');
+// Define database constants
+define('DB_HOST', 'localhost');
+define('DB_USER', 'root');
+define('DB_PASS', '');
+define('DB_NAME', 'aventra_db');
 
 function getDB() {
-    try {
-        $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+    // Suppress warnings during connection attempt
+    $conn = @new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+    
+    if ($conn->connect_error) {
+        $errorMsg = $conn->connect_error;
         
-        if ($conn->connect_error) {
-            throw new Exception("Connection failed: " . $conn->connect_error);
-        }
+        // Log the detailed error
+        error_log("Database Connection Error: " . $errorMsg);
+        debugLog("DATABASE CONNECTION ERROR", [
+            'host' => DB_HOST,
+            'user' => DB_USER,
+            'database' => DB_NAME,
+            'error' => $errorMsg
+        ]);
         
-        $conn->set_charset("utf8mb4");
-        return $conn;
-    } catch (Exception $e) {
+        // Prepare error response
+        $response = [
+            'success' => false,
+            'error' => 'Database connection failed',
+            'details' => $errorMsg  // Include details for debugging
+        ];
+        
+        // Ensure proper JSON output
         http_response_code(500);
-        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        header('Content-Type: application/json; charset=UTF-8');
+        echo json_encode($response);
         exit;
     }
+    
+    $conn->set_charset("utf8mb4");
+    return $conn;
 }
 
 function sendJSON($data, $code = 200) {
-    // Set response code and content type
+    // Set response code
     http_response_code($code);
-    header('Content-Type: application/json; charset=UTF-8');
     
-    // Send CORS headers
-    header('Access-Control-Allow-Origin: *');
-    header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS, PATCH');
-    header('Access-Control-Allow-Headers: Origin, Content-Type, Authorization, X-Requested-With, Accept');
-    header('Cache-Control: no-cache, no-store, must-revalidate');
-    header('Pragma: no-cache');
-    header('Expires: 0');
+    // Content-Type should already be set by the calling endpoint
+    // Only set if not already set
+    if (!headers_sent()) {
+        header('Content-Type: application/json; charset=UTF-8');
+    }
     
     echo json_encode($data);
     exit;
+}
+
+/**
+ * Debug logging function
+ * Logs to both server error log and custom log file
+ * Automatically sanitizes sensitive data (passwords, tokens)
+ */
+function debugLog($message, $data = null) {
+    // Create logs directory if it doesn't exist
+    $logDir = __DIR__ . '/storage/logs';
+    if (!is_dir($logDir)) {
+        @mkdir($logDir, 0755, true);
+    }
+    
+    $logFile = $logDir . '/debug.log';
+    
+    // Format the message
+    $timestamp = date('Y-m-d H:i:s.u');
+    $logMessage = "[$timestamp] $message";
+    
+    if ($data !== null) {
+        // Sanitize sensitive data before logging
+        $sanitized = $data;
+        if (is_array($sanitized)) {
+            if (isset($sanitized['password'])) {
+                $sanitized['password'] = '***HIDDEN***';
+            }
+            if (isset($sanitized['token'])) {
+                $sanitized['token'] = '***HIDDEN***';
+            }
+        }
+        $logMessage .= "\n" . json_encode($sanitized, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    }
+    
+    $logMessage .= "\n---\n";
+    
+    // Write to file
+    @file_put_contents($logFile, $logMessage, FILE_APPEND);
+    
+    // Also write to PHP error log
+    error_log($logMessage);
+}
+
+/**
+ * Get latest log entries from debug log
+ */
+function getDebugLogs($lines = 50) {
+    $logFile = __DIR__ . '/storage/logs/debug.log';
+    if (!file_exists($logFile)) {
+        return "No log file found at: $logFile";
+    }
+    
+    $content = @file_get_contents($logFile);
+    if (!$content) {
+        return "Log file is empty";
+    }
+    
+    $allLines = explode("\n", $content);
+    $lastLines = array_slice($allLines, -$lines);
+    
+    return implode("\n", $lastLines);
 }
 ?>

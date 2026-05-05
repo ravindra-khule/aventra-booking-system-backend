@@ -1,6 +1,6 @@
 <?php
 // Test database connection
-$conn = new mysqli('localhost', 'root', '', 'aventra_db');
+$conn = new mysqli('auth-db678.hstgr.io', 'u946701582_aventra_db', 'm5yg8QFeo|E3', 'u946701582_aventra_db');
 
 if ($conn->connect_error) {
     die("Connection Error: " . $conn->connect_error);

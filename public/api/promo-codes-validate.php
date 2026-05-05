@@ -1,4 +1,19 @@
 <?php
+// ⚠️ CORS and Content-Type headers MUST be set first, before any output
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS, PATCH');
+header('Access-Control-Allow-Headers: Origin, Content-Type, Authorization, X-Requested-With, Accept');
+header('Access-Control-Max-Age: 86400');
+header('Access-Control-Allow-Credentials: false');
+header('Content-Type: application/json; charset=UTF-8');
+
+// Handle CORS preflight requests
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    echo json_encode(['success' => true, 'message' => 'CORS preflight OK']);
+    exit;
+}
+
 /**
  * POST /api/promo-codes-validate.php
  * Validate and apply a promo code to a booking
@@ -6,11 +21,6 @@
  */
 
 require_once __DIR__ . '/../../config.php';
-
-// Additional CORS headers for this endpoint
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
 
 try {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {

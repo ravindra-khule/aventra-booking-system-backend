@@ -1,4 +1,19 @@
 <?php
+// ⚠️ CORS and Content-Type headers MUST be set first, before any output
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS, PATCH');
+header('Access-Control-Allow-Headers: Origin, Content-Type, Authorization, X-Requested-With, Accept');
+header('Access-Control-Max-Age: 86400');
+header('Access-Control-Allow-Credentials: false');
+header('Content-Type: application/json; charset=UTF-8');
+
+// Handle CORS preflight requests
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    echo json_encode(['success' => true, 'message' => 'CORS preflight OK']);
+    exit;
+}
+
 /**
  * GET /api/users.php
  * Get all users (admin only)
@@ -21,20 +36,18 @@ try {
     
     $conn = getDB();
     
-    // Get all users (excluding deleted ones)
+    // Get all users from database
     $sql = "SELECT 
                 id,
                 name,
                 email,
                 role,
                 status,
-                phone,
-                company_name,
                 created_at,
-                last_login
+                last_login,
+                updated_at
             FROM users 
-            WHERE deleted_at IS NULL
-            ORDER BY created_at DESC";
+            ORDER BY id DESC";
     
     $result = $conn->query($sql);
     
@@ -50,10 +63,9 @@ try {
             'email' => $row['email'],
             'role' => $row['role'],
             'status' => $row['status'],
-            'phone' => $row['phone'],
-            'companyName' => $row['company_name'],
             'createdAt' => $row['created_at'],
-            'lastLogin' => $row['last_login']
+            'lastLogin' => $row['last_login'],
+            'updatedAt' => $row['updated_at']
         ];
     }
     

@@ -4,11 +4,11 @@
  * Update these with your Hostinger credentials
  */
 
-// Define database constants
-define('DB_HOST', 'localhost');
-define('DB_USER', 'root');
-define('DB_PASS', '');
-define('DB_NAME', 'aventra_db');
+// Define database constants from environment variables (Docker) or use defaults
+define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
+define('DB_USER', getenv('DB_USER') ?: 'root');
+define('DB_PASS', getenv('DB_PASS') ?: '');
+define('DB_NAME', getenv('DB_NAME') ?: 'aventra_db');
 
 function getDB() {
     // Suppress warnings during connection attempt

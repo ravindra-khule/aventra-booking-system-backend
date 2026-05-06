@@ -1,14 +1,17 @@
 <?php
 /**
- * Database Configuration
- * Update these with your Hostinger credentials
+ * Database Configuration - Hostinger Production
+ * booking.prismadot.com
  */
 
-// Define database constants from environment variables (Docker) or use defaults
-define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
-define('DB_USER', getenv('DB_USER') ?: 'root');
-define('DB_PASS', getenv('DB_PASS') ?: '');
-define('DB_NAME', getenv('DB_NAME') ?: 'aventra_db');
+// Hostinger Database Credentials
+define('DB_HOST', 'auth-db678.hstgr.io');
+define('DB_USER', 'u946701582_aventra');
+define('DB_PASS', 'Prismadot@123');
+define('DB_NAME', 'u946701582_aventra');
+
+// JWT Secret for authentication
+define('JWT_SECRET', 'xoJGiyVAIyKO4OIf5WOv256EcQN0Blnx7JxyvmCXsCs=');
 
 function getDB() {
     // Suppress warnings during connection attempt

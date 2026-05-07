@@ -1,0 +1,61 @@
+# PHP Backend Development Dockerfile
+FROM php:8.2-apache
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    libzip-dev \
+    libpng-dev \
+    libjpeg-dev \
+    libfreetype6-dev \
+    libonig-dev \
+    libxml2-dev \
+    zip \
+    unzip \
+    curl \
+    wget \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install PHP extensions
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j$(nproc) \
+    gd \
+    mysqli \
+    pdo_mysql \
+    zip \
+    bcmath \
+    opcache \
+    xml \
+    mbstring \
+    curl \
+    json \
+    iconv
+
+# Enable Apache modules and configure for development
+RUN a2enmod rewrite headers \
+    && echo "ServerName localhost" >> /etc/apache2/apache2.conf \
+    && sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf
+
+# Configure PHP for development
+RUN echo "display_errors = On" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
+    && echo "error_reporting = E_ALL" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+
+# Set working directory
+WORKDIR /var/www/html
+
+# Copy application files
+COPY . .
+
+# Create storage directory for logs
+RUN mkdir -p storage/logs && chmod 777 storage/logs
+
+# Set permissions
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 755 /var/www/html \
+    && chmod -R 777 /var/www/html/storage
+
+# Expose port 80
+EXPOSE 80
+
+# Start Apache
+CMD ["apache2-foreground"]

@@ -1,14 +1,17 @@
 <?php
 /**
  * Database Configuration
- * Update these with your Hostinger credentials
+ * Works for both Docker (env vars) and Hostinger (fallback values)
  */
 
-// Define database constants
-define('DB_HOST', 'localhost');
-define('DB_USER', 'root');
-define('DB_PASS', '');
-define('DB_NAME', 'aventra_db');
+// Check if running in Docker (env vars set), otherwise use Hostinger values
+define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
+define('DB_USER', getenv('DB_USER') ?: 'u946701582_aventra');
+define('DB_PASS', getenv('DB_PASS') ?: 'Prismadot@123');
+define('DB_NAME', getenv('DB_NAME') ?: 'u946701582_aventra');
+
+// JWT Secret for authentication
+define('JWT_SECRET', 'xoJGiyVAIyKO4OIf5WOv256EcQN0Blnx7JxyvmCXsCs=');
 
 function getDB() {
     // Suppress warnings during connection attempt

@@ -17,9 +17,6 @@
 </IfModule>
 
 <IfModule mod_headers.c>
-    Header always set Access-Control-Allow-Origin "*"
-    Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-    Header always set Access-Control-Allow-Headers "Origin, Content-Type, Authorization, X-Requested-With, Accept"
     Header always set X-Content-Type-Options "nosniff"
     Header always set X-Frame-Options "SAMEORIGIN"
 </IfModule>

@@ -1,14 +1,14 @@
 <?php
 /**
- * Database Configuration - Hostinger Production
- * booking.prismadot.com
+ * Database Configuration
+ * Works for both Docker (env vars) and Hostinger (fallback values)
  */
 
-// Hostinger Database Credentials
-define('DB_HOST', 'auth-db678.hstgr.io');
-define('DB_USER', 'u946701582_aventra');
-define('DB_PASS', 'Prismadot@123');
-define('DB_NAME', 'u946701582_aventra');
+// Check if running in Docker (env vars set), otherwise use Hostinger values
+define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
+define('DB_USER', getenv('DB_USER') ?: 'u946701582_aventra');
+define('DB_PASS', getenv('DB_PASS') ?: 'Prismadot@123');
+define('DB_NAME', getenv('DB_NAME') ?: 'u946701582_aventra');
 
 // JWT Secret for authentication
 define('JWT_SECRET', 'xoJGiyVAIyKO4OIf5WOv256EcQN0Blnx7JxyvmCXsCs=');

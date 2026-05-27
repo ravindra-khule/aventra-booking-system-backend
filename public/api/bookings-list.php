@@ -28,7 +28,7 @@ try {
     }
     
     $userId = $_GET['userId'] ?? null;
-    $isAdmin = $_GET['admin'] === 'true' ? true : false;
+    $isAdmin = isset($_GET['admin']) && $_GET['admin'] === 'true' ? true : false;
     
     if (!$userId && !$isAdmin) {
         sendJSON(['success' => false, 'error' => 'userId or admin flag required'], 400);
@@ -43,7 +43,6 @@ try {
                     b.id,
                     b.booking_reference,
                     b.user_id,
-                    b.customer_id,
                     b.tour_id,
                     b.number_of_people,
                     b.total_price,
@@ -68,7 +67,6 @@ try {
                     b.id,
                     b.booking_reference,
                     b.user_id,
-                    b.customer_id,
                     b.tour_id,
                     b.number_of_people,
                     b.total_price,
@@ -78,6 +76,7 @@ try {
                     b.payment_status,
                     b.customer_name,
                     b.customer_email,
+                    b.customer_phone,
                     b.booking_date,
                     t.title as tour_title,
                     t.location,
@@ -107,8 +106,7 @@ try {
             'id' => (int) $row['id'],
             'booking_reference' => $row['booking_reference'],
             'user_id' => (int) $row['user_id'],
-            'customer_id' => $row['customer_id'] ? (int) $row['customer_id'] : null,
-            'tour_id' => (int) $row['tour_id'],
+                        'tour_id' => (int) $row['tour_id'],
             'tour_title' => $row['tour_title'],
             'location' => $row['location'],
             'number_of_people' => (int) $row['number_of_people'],

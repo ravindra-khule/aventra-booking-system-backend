@@ -40,15 +40,10 @@ try {
                 email,
                 role,
                 status,
-                phone,
-                company_name,
-                avatar_url,
-                two_factor_enabled,
                 created_at,
                 updated_at,
                 last_login
-            FROM users 
-            WHERE deleted_at IS NULL";
+            FROM users";
     
     $params = [];
     $types = '';
@@ -103,9 +98,6 @@ try {
             'email' => $row['email'],
             'role' => $row['role'],
             'status' => $row['status'],
-            'phone' => $row['phone'],
-            'avatar' => $row['avatar_url'],
-            'twoFactorEnabled' => (bool) $row['two_factor_enabled'],
             'createdAt' => $row['created_at'],
             'updatedAt' => $row['updated_at'],
             'lastLogin' => $row['last_login']

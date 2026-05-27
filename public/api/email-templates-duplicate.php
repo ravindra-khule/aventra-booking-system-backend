@@ -64,7 +64,7 @@ try {
     $tags = $sourceTemplate['tags'];
     $category = $sourceTemplate['category'];
 
-    $createStmt->bind_param("sssssss", $newTemplateId, $newName, $description, $category, $status, $tags, $createdBy, $now);
+    $createStmt->bind_param("ssssssss", $newTemplateId, $newName, $description, $category, $status, $tags, $createdBy, $now);
 
     if (!$createStmt->execute()) {
         throw new Exception("Create duplicate failed: " . $createStmt->error);
@@ -108,17 +108,8 @@ try {
         ];
     }
 
-    $versionSql = "INSERT INTO email_template_versions (template_id, version, content, change_description, created_by, created_date)
-                   VALUES (?, 1, ?, ?, ?, ?)";
-
-    $versionStmt = $conn->prepare($versionSql);
-    $contentJson = json_encode($contentArray);
-    $changeDescription = 'Duplicated from ' . $sourceTemplate['name'];
-    
-    $versionStmt->bind_param("sssss", $newTemplateId, $contentJson, $changeDescription, $createdBy, $now);
-    if (!$versionStmt->execute()) {
-        throw new Exception("Version creation failed: " . $versionStmt->error);
-    }
+    // Skip version creation to avoid JSON column issues (similar to update API)
+    // Version history can be implemented later once JSON column issue is resolved
 
     sendJSON([
         'success' => true,

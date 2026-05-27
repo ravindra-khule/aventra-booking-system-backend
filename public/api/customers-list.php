@@ -32,23 +32,19 @@ try {
     // Get all customers with their booking statistics
     $sql = "SELECT 
                 c.id,
-                c.first_name,
-                c.last_name,
+                c.name,
                 c.email,
                 c.phone,
                 c.address,
-                c.zip_code,
                 c.city,
                 c.country,
-                c.notes,
-                c.last_booking_date,
+                c.postal_code,
                 c.created_at,
                 COUNT(DISTINCT b.id) as total_bookings,
                 COALESCE(SUM(b.total_price), 0) as total_spent
             FROM customers c
-            LEFT JOIN bookings b ON c.id = b.customer_id AND b.deleted_at IS NULL
-            WHERE c.deleted_at IS NULL
-            GROUP BY c.id, c.first_name, c.last_name, c.email, c.phone, c.address, c.zip_code, c.city, c.country, c.notes, c.last_booking_date, c.created_at
+            LEFT JOIN bookings b ON c.user_id = b.user_id
+            GROUP BY c.id, c.name, c.email, c.phone, c.address, c.city, c.country, c.postal_code, c.created_at
             ORDER BY c.created_at DESC";
     
     $result = $conn->query($sql);
@@ -61,16 +57,13 @@ try {
     while ($row = $result->fetch_assoc()) {
         $customers[] = [
             'id' => (int) $row['id'],
-            'first_name' => $row['first_name'],
-            'last_name' => $row['last_name'],
+            'name' => $row['name'],
             'email' => $row['email'],
             'phone' => $row['phone'] ?? null,
             'address' => $row['address'] ?? null,
-            'zip_code' => $row['zip_code'] ?? null,
             'city' => $row['city'] ?? null,
             'country' => $row['country'] ?? null,
-            'notes' => $row['notes'] ?? null,
-            'last_booking_date' => $row['last_booking_date'],
+            'postal_code' => $row['postal_code'] ?? null,
             'total_bookings' => (int) $row['total_bookings'],
             'total_spent' => (float) $row['total_spent'],
             'created_at' => $row['created_at']

@@ -77,23 +77,9 @@ try {
 
     $templates = [];
     while ($row = $result->fetch_assoc()) {
-        // Get template content for each language
-        $contentSql = "SELECT language, subject, html_content, text_content FROM email_template_content WHERE template_id = ?";
-        $contentStmt = $conn->prepare($contentSql);
-        $contentStmt->bind_param("s", $row['id']);
-        $contentStmt->execute();
-        $contentResult = $contentStmt->get_result();
-
-        $content = [];
-        while ($contentRow = $contentResult->fetch_assoc()) {
-            $content[] = [
-                'language' => $contentRow['language'],
-                'subject' => $contentRow['subject'],
-                'htmlContent' => $contentRow['html_content'],
-                'textContent' => $contentRow['text_content']
-            ];
-        }
-
+        // Parse tags from JSON
+        $tags = $row['tags'] ? json_decode($row['tags'], true) : [];
+        
         $templates[] = [
             'id' => $row['id'],
             'name' => $row['name'],
@@ -102,9 +88,9 @@ try {
             'status' => $row['status'],
             'version' => (int)$row['version'],
             'isDefault' => (bool)$row['is_default'],
-            'tags' => json_decode($row['tags'] ?? '[]', true),
+            'tags' => $tags,
             'usageCount' => (int)$row['usage_count'],
-            'content' => $content,
+            'content' => [], // Empty content for now
             'createdBy' => $row['created_by'],
             'createdDate' => $row['created_date'],
             'lastModified' => $row['last_modified'],

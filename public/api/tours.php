@@ -29,7 +29,7 @@ try {
     
     $conn = getDB();
     
-    // Fetch all active tours with upcoming dates
+    // Fetch all active, non-deleted tours (upcoming departures first)
     $sql = "SELECT 
                 id,
                 title,
@@ -48,8 +48,8 @@ try {
                 max_capacity
             FROM tours 
             WHERE status = 'active' 
-            AND next_date >= CURDATE()
-            ORDER BY next_date ASC";
+            AND deleted_at IS NULL
+            ORDER BY (next_date IS NOT NULL AND next_date >= CURDATE()) DESC, next_date ASC";
     
     $result = $conn->query($sql);
     

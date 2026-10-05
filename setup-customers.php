@@ -4,13 +4,10 @@
  * Run once: php setup-customers.php
  */
 
-$host = 'localhost';
-$user = 'root';
-$pass = '';
-$db = 'aventra_db';
+require_once __DIR__ . '/config.php';
 
 try {
-    $conn = new mysqli($host, $user, $pass, $db);
+    $conn = getDB();
     
     if ($conn->connect_error) {
         die("❌ Connection failed: " . $conn->connect_error);

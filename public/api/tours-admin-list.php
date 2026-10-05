@@ -29,26 +29,35 @@ try {
     
     $conn = getDB();
     
-    // Fetch ALL tours without filters (for admin)
+    // Fetch ALL non-deleted tours with booking stats (for admin)
     $sql = "SELECT 
-                id,
-                title,
-                slug,
-                image_url,
-                short_description,
-                description,
-                location,
-                country,
-                next_date,
-                duration_days,
-                price,
-                currency,
-                difficulty,
-                available_spots,
-                max_capacity,
-                status
-            FROM tours 
-            ORDER BY id DESC";
+                t.id,
+                t.title,
+                t.slug,
+                t.image_url,
+                t.short_description,
+                t.description,
+                t.location,
+                t.country,
+                t.region,
+                t.next_date,
+                t.duration_days,
+                t.price,
+                t.deposit_price,
+                t.currency,
+                t.difficulty,
+                t.available_spots,
+                t.max_capacity,
+                t.status,
+                COUNT(b.id) AS total_bookings,
+                COALESCE(SUM(CASE WHEN b.status IN ('confirmed', 'completed') THEN b.total_price END), 0) AS revenue
+            FROM tours t
+            LEFT JOIN bookings b ON b.tour_id = t.id 
+                AND b.deleted_at IS NULL 
+                AND b.status != 'cancelled'
+            WHERE t.deleted_at IS NULL
+            GROUP BY t.id
+            ORDER BY t.id DESC";
     
     $result = $conn->query($sql);
     
@@ -67,14 +76,18 @@ try {
             'description' => $row['description'],
             'location' => $row['location'],
             'country' => $row['country'],
+            'region' => $row['region'],
             'nextDate' => $row['next_date'],
             'durationDays' => (int) $row['duration_days'],
             'price' => (float) $row['price'],
+            'depositPrice' => (float) $row['deposit_price'],
             'currency' => $row['currency'],
             'difficulty' => $row['difficulty'],
             'availableSpots' => (int) $row['available_spots'],
             'maxCapacity' => (int) $row['max_capacity'],
-            'status' => $row['status']
+            'status' => $row['status'],
+            'totalBookings' => (int) $row['total_bookings'],
+            'revenue' => (float) $row['revenue']
         ];
     }
     

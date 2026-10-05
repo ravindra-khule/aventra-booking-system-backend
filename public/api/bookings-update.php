@@ -56,15 +56,17 @@ try {
     }
     
     $conn = getDB();
+    $conn->begin_transaction();
     
     // Check if booking exists
-    $checkSql = "SELECT id, status FROM bookings WHERE id = ?";
+    $checkSql = "SELECT id, status, tour_id, number_of_people FROM bookings WHERE id = ? AND deleted_at IS NULL";
     $checkStmt = $conn->prepare($checkSql);
     $checkStmt->bind_param('i', $bookingId);
     $checkStmt->execute();
     $checkResult = $checkStmt->get_result();
     
     if ($checkResult->num_rows === 0) {
+        $conn->rollback();
         sendJSON(['success' => false, 'error' => 'Booking not found'], 404);
     }
     
@@ -122,10 +124,23 @@ try {
     $updateStmt->bind_param($types, ...$values);
     
     if (!$updateStmt->execute()) {
+        $conn->rollback();
         sendJSON(['success' => false, 'error' => 'Failed to update booking'], 500);
     }
     
     $updateStmt->close();
+    
+    // Restore tour spots when a booking is newly cancelled or refunded
+    $freedStatuses = ['cancelled', 'refunded'];
+    if ($status && in_array($status, $freedStatuses) && !in_array($existingBooking['status'], $freedStatuses)) {
+        $restoreSql = "UPDATE tours SET available_spots = LEAST(max_capacity, available_spots + ?) WHERE id = ?";
+        $restoreStmt = $conn->prepare($restoreSql);
+        $restoreStmt->bind_param('ii', $existingBooking['number_of_people'], $existingBooking['tour_id']);
+        $restoreStmt->execute();
+        $restoreStmt->close();
+    }
+    
+    $conn->commit();
     
     // Get updated booking
     $getSql = "SELECT 

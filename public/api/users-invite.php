@@ -60,14 +60,16 @@ try {
     // Generate invitation token (random 32 character string)
     $invitationToken = bin2hex(random_bytes(16));
     $expiresAt = date('Y-m-d H:i:s', strtotime('+7 days'));
+    // Placeholder password until the invitee sets their own
+    $placeholderPassword = password_hash(bin2hex(random_bytes(16)), PASSWORD_BCRYPT);
     
     // Create pending user with PENDING status
     $insertStmt = $conn->prepare(
-        "INSERT INTO users (email, role, status, invitation_token, invitation_expires_at, created_at, updated_at)
-         VALUES (?, ?, 'PENDING', ?, ?, NOW(), NOW())"
+        "INSERT INTO users (email, password, role, status, invitation_token, invitation_expires_at, created_at, updated_at)
+         VALUES (?, ?, ?, 'PENDING', ?, ?, NOW(), NOW())"
     );
     
-    $insertStmt->bind_param('sss', $email, $role, $expiresAt);
+    $insertStmt->bind_param('sssss', $email, $placeholderPassword, $role, $invitationToken, $expiresAt);
     
     if (!$insertStmt->execute()) {
         sendJSON(['success' => false, 'error' => 'Failed to create invitation: ' . $insertStmt->error], 500);

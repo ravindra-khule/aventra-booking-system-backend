@@ -38,16 +38,14 @@ try {
                 id,
                 name,
                 email,
+                phone,
                 role,
                 status,
-                phone,
-                company_name,
-                avatar_url,
                 two_factor_enabled,
                 created_at,
                 updated_at,
                 last_login
-            FROM users 
+            FROM users
             WHERE deleted_at IS NULL";
     
     $params = [];
@@ -102,9 +100,8 @@ try {
             'name' => $row['name'],
             'email' => $row['email'],
             'role' => $row['role'],
-            'status' => $row['status'],
             'phone' => $row['phone'],
-            'avatar' => $row['avatar_url'],
+            'status' => $row['status'],
             'twoFactorEnabled' => (bool) $row['two_factor_enabled'],
             'createdAt' => $row['created_at'],
             'updatedAt' => $row['updated_at'],

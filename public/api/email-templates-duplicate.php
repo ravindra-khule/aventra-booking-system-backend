@@ -78,21 +78,22 @@ try {
     $contentResult = $contentStmt->get_result();
 
     while ($contentRow = $contentResult->fetch_assoc()) {
-        $insertContentSql = "INSERT INTO email_template_content (template_id, language, subject, html_content, text_content)
-                             VALUES (?, ?, ?, ?, ?)";
+        $insertContentSql = "INSERT INTO email_template_content (template_id, language, subject, preheader, html_content, text_content)
+                             VALUES (?, ?, ?, ?, ?, ?)";
         
         $insertContentStmt = $conn->prepare($insertContentSql);
         $language = $contentRow['language'];
         $subject = $contentRow['subject'];
+        $preheader = $contentRow['preheader'] ?? '';
         $htmlContent = $contentRow['html_content'];
         $textContent = $contentRow['text_content'];
         
-        $insertContentStmt->bind_param("sssss", $newTemplateId, $language, $subject, $htmlContent, $textContent);
+        $insertContentStmt->bind_param("ssssss", $newTemplateId, $language, $subject, $preheader, $htmlContent, $textContent);
         $insertContentStmt->execute();
     }
 
     // Fetch all content for the new template to create version
-    $fetchContentSql = "SELECT language, subject, html_content, text_content FROM email_template_content WHERE template_id = ?";
+    $fetchContentSql = "SELECT language, subject, preheader, html_content, text_content FROM email_template_content WHERE template_id = ?";
     $fetchContentStmt = $conn->prepare($fetchContentSql);
     $fetchContentStmt->bind_param("s", $newTemplateId);
     $fetchContentStmt->execute();
@@ -103,6 +104,7 @@ try {
         $contentArray[] = [
             'language' => $row['language'],
             'subject' => $row['subject'],
+            'preheader' => $row['preheader'],
             'htmlContent' => $row['html_content'],
             'textContent' => $row['text_content']
         ];

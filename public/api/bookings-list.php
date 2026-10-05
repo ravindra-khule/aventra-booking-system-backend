@@ -28,69 +28,52 @@ try {
     }
     
     $userId = $_GET['userId'] ?? null;
-    $isAdmin = $_GET['admin'] === 'true' ? true : false;
+    $bookingId = isset($_GET['id']) ? (int) $_GET['id'] : null;
+    $isAdmin = isset($_GET['admin']) && $_GET['admin'] === 'true' ? true : false;
     
-    if (!$userId && !$isAdmin) {
-        sendJSON(['success' => false, 'error' => 'userId or admin flag required'], 400);
+    if (!$userId && !$isAdmin && !$bookingId) {
+        sendJSON(['success' => false, 'error' => 'userId, id or admin flag required'], 400);
     }
     
     $conn = getDB();
     
-    // Get bookings
-    if ($isAdmin) {
+    $selectSql = "SELECT 
+                b.id,
+                b.booking_reference,
+                b.user_id,
+                b.customer_id,
+                b.tour_id,
+                b.number_of_people,
+                b.total_price,
+                b.deposit_paid,
+                b.balance_due,
+                b.status,
+                b.payment_status,
+                b.customer_name,
+                b.customer_email,
+                b.customer_phone,
+                b.special_requirements,
+                b.booking_date,
+                b.departure_date,
+                t.title as tour_title,
+                t.location,
+                t.next_date,
+                t.image_url as tour_image_url
+            FROM bookings b
+            LEFT JOIN tours t ON b.tour_id = t.id";
+    
+    if ($bookingId) {
+        $sql = "$selectSql WHERE b.id = ? AND b.deleted_at IS NULL";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param('i', $bookingId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+    } elseif ($isAdmin) {
         // Admin: Get all bookings with tour info
-        $sql = "SELECT 
-                    b.id,
-                    b.booking_reference,
-                    b.user_id,
-                    b.customer_id,
-                    b.tour_id,
-                    b.number_of_people,
-                    b.total_price,
-                    b.deposit_paid,
-                    b.balance_due,
-                    b.status,
-                    b.payment_status,
-                    b.customer_name,
-                    b.customer_email,
-                    b.customer_phone,
-                    b.booking_date,
-                    t.title as tour_title,
-                    t.location,
-                    t.next_date
-                FROM bookings b
-                JOIN tours t ON b.tour_id = t.id
-                WHERE b.deleted_at IS NULL
-                ORDER BY b.booking_date DESC";
+        $result = $conn->query("$selectSql WHERE b.deleted_at IS NULL ORDER BY b.booking_date DESC");
     } else {
         // User: Get their bookings
-        $sql = "SELECT 
-                    b.id,
-                    b.booking_reference,
-                    b.user_id,
-                    b.customer_id,
-                    b.tour_id,
-                    b.number_of_people,
-                    b.total_price,
-                    b.deposit_paid,
-                    b.balance_due,
-                    b.status,
-                    b.payment_status,
-                    b.customer_name,
-                    b.customer_email,
-                    b.booking_date,
-                    t.title as tour_title,
-                    t.location,
-                    t.next_date
-                FROM bookings b
-                JOIN tours t ON b.tour_id = t.id
-                WHERE b.user_id = ? AND b.deleted_at IS NULL
-                ORDER BY b.booking_date DESC";
-    }
-    
-    if ($isAdmin) {
-        $result = $conn->query($sql);
-    } else {
+        $sql = "$selectSql WHERE b.user_id = ? AND b.deleted_at IS NULL ORDER BY b.booking_date DESC";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param('i', $userId);
         $stmt->execute();
@@ -107,9 +90,9 @@ try {
             'id' => (int) $row['id'],
             'booking_reference' => $row['booking_reference'],
             'user_id' => (int) $row['user_id'],
-            'customer_id' => $row['customer_id'] ? (int) $row['customer_id'] : null,
+            'customer_id' => $row['customer_id'] !== null ? (int) $row['customer_id'] : null,
             'tour_id' => (int) $row['tour_id'],
-            'tour_title' => $row['tour_title'],
+            'tour_title' => $row['tour_title'] ?? 'Deleted Tour',
             'location' => $row['location'],
             'number_of_people' => (int) $row['number_of_people'],
             'total_price' => (float) $row['total_price'],
@@ -120,13 +103,15 @@ try {
             'customer_name' => $row['customer_name'],
             'customer_email' => $row['customer_email'],
             'customer_phone' => $row['customer_phone'] ?? null,
+            'special_requirements' => $row['special_requirements'] ?? null,
             'booking_date' => $row['booking_date'],
             'next_date' => $row['next_date'],
-            'departure_date' => null  // For compatibility
+            'departure_date' => $row['departure_date'],
+            'tour_image_url' => $row['tour_image_url'] ?? null
         ];
     }
     
-    if (!$isAdmin && isset($stmt)) {
+    if (isset($stmt)) {
         $stmt->close();
     }
     

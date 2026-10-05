@@ -56,7 +56,7 @@ try {
     $setting = [
         'id' => (int) $row['id'],
         'category' => $row['category'],
-        'key' => $row['key_name'],
+        'key' => $row['key'],
         'value' => $row['value'],
         'type' => $row['type'],
         'description' => $row['description'],

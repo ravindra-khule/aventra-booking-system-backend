@@ -48,7 +48,7 @@ try {
                 u.name as user_name,
                 u.email as user_email
             FROM bookings b
-            JOIN tours t ON b.tour_id = t.id
+            LEFT JOIN tours t ON b.tour_id = t.id
             LEFT JOIN users u ON b.user_id = u.id
             WHERE b.id = ? AND b.deleted_at IS NULL
             LIMIT 1";

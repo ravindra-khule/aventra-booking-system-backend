@@ -47,6 +47,8 @@ try {
     $difficulty = $body['difficulty'] ?? null;
     $location = $body['location'] ?? null;
     $country = $body['country'] ?? null;
+    $region = $body['region'] ?? null;
+    $currency = $body['currency'] ?? null;
     $maxCapacity = isset($body['maxCapacity']) ? (int) $body['maxCapacity'] : null;
     $nextDate = $body['nextDate'] ?? null;
     
@@ -57,7 +59,7 @@ try {
     $conn = getDB();
     
     // Check if tour exists
-    $checkSql = "SELECT id FROM tours WHERE id = ?";
+    $checkSql = "SELECT id FROM tours WHERE id = ? AND deleted_at IS NULL";
     $checkStmt = $conn->prepare($checkSql);
     $checkStmt->bind_param('i', $id);
     $checkStmt->execute();
@@ -145,6 +147,18 @@ try {
         $values[] = $country;
     }
     
+    if ($region !== null) {
+        $updateFields[] = "region = ?";
+        $types .= 's';
+        $values[] = $region;
+    }
+    
+    if ($currency !== null) {
+        $updateFields[] = "currency = ?";
+        $types .= 's';
+        $values[] = $currency;
+    }
+    
     if ($maxCapacity !== null) {
         $updateFields[] = "max_capacity = ?";
         $types .= 'i';
@@ -216,6 +230,7 @@ try {
             'difficulty' => $updatedTour['difficulty'],
             'location' => $updatedTour['location'],
             'country' => $updatedTour['country'],
+            'region' => $updatedTour['region'],
             'maxCapacity' => (int) $updatedTour['max_capacity'],
             'availableSpots' => (int) $updatedTour['available_spots'],
             'nextDate' => $updatedTour['next_date']

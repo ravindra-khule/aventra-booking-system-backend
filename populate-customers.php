@@ -4,24 +4,21 @@
  * Run after setup-customers.php: php populate-customers.php
  */
 
-$host = 'localhost';
-$user = 'root';
-$pass = '';
-$db = 'aventra_db';
+require_once __DIR__ . '/config.php';
 
 try {
-    $conn = new mysqli($host, $user, $pass, $db);
+    $conn = getDB();
     
     if ($conn->connect_error) {
         die("❌ Connection failed: " . $conn->connect_error);
     }
     
     // Get all unique customers from bookings
-    $sql = "SELECT DISTINCT 
-                SUBSTRING_INDEX(customer_name, ' ', 1) as first_name,
-                SUBSTRING_INDEX(customer_name, ' ', -1) as last_name,
+    $sql = "SELECT 
+                ANY_VALUE(SUBSTRING_INDEX(customer_name, ' ', 1)) as first_name,
+                ANY_VALUE(SUBSTRING_INDEX(customer_name, ' ', -1)) as last_name,
                 customer_email,
-                customer_phone,
+                ANY_VALUE(customer_phone) as customer_phone,
                 MIN(booking_date) as created_at,
                 MAX(booking_date) as last_booking_date
             FROM bookings 

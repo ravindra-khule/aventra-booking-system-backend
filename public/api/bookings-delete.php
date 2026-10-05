@@ -48,17 +48,20 @@ try {
     }
     
     $conn = getDB();
+    $conn->begin_transaction();
     
     // Check if booking exists
-    $checkSql = "SELECT id FROM bookings WHERE id = ? AND deleted_at IS NULL";
+    $checkSql = "SELECT id, status, tour_id, number_of_people FROM bookings WHERE id = ? AND deleted_at IS NULL";
     $checkStmt = $conn->prepare($checkSql);
     $checkStmt->bind_param('i', $id);
     $checkStmt->execute();
     $checkResult = $checkStmt->get_result();
     
     if ($checkResult->num_rows === 0) {
+        $conn->rollback();
         sendJSON(['success' => false, 'error' => 'Booking not found'], 404);
     }
+    $booking = $checkResult->fetch_assoc();
     $checkStmt->close();
     
     // Soft delete the booking (mark as deleted)
@@ -72,10 +75,22 @@ try {
     $deleteStmt->bind_param('i', $id);
     
     if (!$deleteStmt->execute()) {
+        $conn->rollback();
         sendJSON(['success' => false, 'error' => 'Failed to delete booking'], 500);
     }
     
     $deleteStmt->close();
+    
+    // Restore tour spots if the booking was still holding them
+    if (!in_array($booking['status'], ['cancelled', 'refunded'])) {
+        $restoreSql = "UPDATE tours SET available_spots = LEAST(max_capacity, available_spots + ?) WHERE id = ?";
+        $restoreStmt = $conn->prepare($restoreSql);
+        $restoreStmt->bind_param('ii', $booking['number_of_people'], $booking['tour_id']);
+        $restoreStmt->execute();
+        $restoreStmt->close();
+    }
+    
+    $conn->commit();
     $conn->close();
     
     sendJSON([

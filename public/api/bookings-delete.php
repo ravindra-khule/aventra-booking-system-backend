@@ -20,6 +20,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
  */
 
 require_once __DIR__ . '/../../config.php';
+// Email notifications are best-effort: a missing notifier must never break bookings.
+$__notifierPath = __DIR__ . '/../../lib/BookingNotifier.php';
+if (is_file($__notifierPath)) {
+    require_once $__notifierPath;
+}
 
 try {
     // Get the request method
@@ -76,14 +81,40 @@ try {
     }
     
     $deleteStmt->close();
+    
+    // Restore tour spots if the booking was still holding them
+    if (!in_array($booking['status'], ['cancelled', 'refunded'])) {
+        $restoreSql = "UPDATE tours SET available_spots = LEAST(max_capacity, available_spots + ?) WHERE id = ?";
+        $restoreStmt = $conn->prepare($restoreSql);
+        $restoreStmt->bind_param('ii', $booking['number_of_people'], $booking['tour_id']);
+        $restoreStmt->execute();
+        $restoreStmt->close();
+    }
+    
+    $conn->commit();
+    
+    // Notify cancellation (admin-side delete = client cancellation) - non-fatal
+    $emailsSent = 0;
+    $cancelledBy = strtolower(trim($body['cancelledBy'] ?? 'client'));
+    try {
+        if (function_exists('notifyBookingEvent')) {
+            $event = $cancelledBy === 'customer' ? 'booking_cancelled_user' : 'booking_cancelled_client';
+            $result = notifyBookingEvent($conn, $event, (int) $id, ['reason' => $body['reason'] ?? '']);
+            $emailsSent = $result['sent'];
+            cancelBookingReminders($conn, (int) $id);
+        }
+    } catch (Throwable $notifyError) {
+        debugLog('Booking Notify Error (delete)', ['error' => $notifyError->getMessage()]);
+    }
     $conn->close();
     
     sendJSON([
         'success' => true,
-        'message' => 'Booking deleted successfully'
+        'message' => 'Booking deleted successfully',
+        'data' => ['emailsSent' => $emailsSent]
     ]);
     
-} catch (Exception $e) {
+} catch (Throwable $e) {
     sendJSON([
         'success' => false,
         'error' => $e->getMessage()

@@ -1,28 +1,40 @@
+# --- Defaults ---
+DirectoryIndex index.html index.php
+Options -Indexes
+
+# --- Pass Authorization header to PHP (required for JWT on Hostinger) ---
+<IfModule mod_setenvif.c>
+    SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+</IfModule>
+# JWT secret as env var (same value as putenv() in config.php)
+SetEnv JWT_SECRET BHpuFnqhZJ4bYNzjWG7Sm9o3rcltC2OTvUVRw1I6gDfeEAXMPd0K8axL5Qkysi
+
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteBase /
-    
-    # Don't process real files or directories
-    RewriteCond %{REQUEST_FILENAME} -f [OR]
-    RewriteCond %{REQUEST_FILENAME} -d
-    RewriteRule ^ - [L]
-    
-    # API requests - route to PHP (only if not already .php)
+
+    # --- Force HTTPS (uncomment AFTER free SSL is installed in hPanel) ---
+    # RewriteCond %{HTTPS} off
+    # RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # --- Optional: extensionless API URLs (/api/tours -> /api/tours.php) ---
     RewriteCond %{REQUEST_URI} ^/api/
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !\.php$
     RewriteRule ^api/(.*)$ api/$1.php [QSA,L]
-    
-    # All other requests - serve index.html (for React Router)
-    RewriteRule ^(.*)$ index.html [QSA,L]
+
+    # NOTE: No SPA fallback needed - frontend uses HashRouter (/#/...)
 </IfModule>
 
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options "nosniff"
     Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
 </IfModule>
 
-<FilesMatch "\.(env|json|sql)$">
-    Deny from all
+# --- Block direct access to sensitive file types ---
+<FilesMatch "\.(env|sql|log|md)$">
+    Require all denied
 </FilesMatch>
 
 <IfModule mod_deflate.c>

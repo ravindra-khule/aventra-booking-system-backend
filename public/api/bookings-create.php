@@ -20,6 +20,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
  */
 
 require_once __DIR__ . '/../../config.php';
+// Email notifications are best-effort: a missing notifier must never break bookings.
+$__notifierPath = __DIR__ . '/../../lib/BookingNotifier.php';
+if (is_file($__notifierPath)) {
+    require_once $__notifierPath;
+}
 
 try {
     // Only allow POST requests

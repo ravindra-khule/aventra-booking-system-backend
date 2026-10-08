@@ -40,9 +40,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
  * }
  */
 
-require_once __DIR__ . '/../../config.php';
-require_once __DIR__ . '/../../lib/JWTHandler.php';
-require_once __DIR__ . '/../../lib/AuthMiddleware.php';
+require_once __DIR__ . '/../../../config.php';
+require_once __DIR__ . '/../../../lib/JWTHandler.php';
+require_once __DIR__ . '/../../../lib/AuthMiddleware.php';
 
 try {
     // Only allow POST requests

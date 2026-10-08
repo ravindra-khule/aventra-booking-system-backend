@@ -20,6 +20,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
  */
 
 require_once __DIR__ . '/../../config.php';
+// Email notifications are best-effort: a missing notifier must never break bookings.
+$__notifierPath = __DIR__ . '/../../lib/BookingNotifier.php';
+if (is_file($__notifierPath)) {
+    require_once $__notifierPath;
+}
 
 try {
     // Get the request method
@@ -95,10 +100,11 @@ try {
     
     sendJSON([
         'success' => true,
-        'message' => 'Booking deleted successfully'
+        'message' => 'Booking deleted successfully',
+        'data' => ['emailsSent' => $emailsSent]
     ]);
     
-} catch (Exception $e) {
+} catch (Throwable $e) {
     sendJSON([
         'success' => false,
         'error' => $e->getMessage()

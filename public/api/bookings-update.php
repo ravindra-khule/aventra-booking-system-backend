@@ -20,6 +20,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
  */
 
 require_once __DIR__ . '/../../config.php';
+// Email notifications are best-effort: a missing notifier must never break bookings.
+$__notifierPath = __DIR__ . '/../../lib/BookingNotifier.php';
+if (is_file($__notifierPath)) {
+    require_once $__notifierPath;
+}
 
 try {
     // Only allow PUT/POST requests
@@ -38,9 +43,17 @@ try {
     $status = $body['status'] ?? null;
     $paymentStatus = $body['paymentStatus'] ?? null;
     $notes = $body['notes'] ?? null;
+    $departureDate = $body['departureDate'] ?? null;          // reschedule
+    $cancelledBy = strtolower(trim($body['cancelledBy'] ?? 'client')); // 'customer' | 'client'
+    $rejected = !empty($body['rejected']);                  // client rejects a booking
     
     if (!$bookingId) {
         sendJSON(['success' => false, 'error' => 'Booking ID is required'], 400);
+    }
+    
+    // A rejection is stored as a cancellation
+    if ($rejected && !$status) {
+        $status = 'cancelled';
     }
     
     // Validate status
@@ -94,6 +107,18 @@ try {
         $updateFields[] = "notes = ?";
         $types .= 's';
         $values[] = $notes;
+    }
+    
+    // Reschedule: new departure date
+    if ($departureDate !== null && $departureDate !== '') {
+        $parsed = strtotime($departureDate);
+        if ($parsed === false) {
+            sendJSON(['success' => false, 'error' => 'Invalid departureDate'], 400);
+        }
+        $departureDate = date('Y-m-d', $parsed);
+        $updateFields[] = "departure_date = ?";
+        $types .= 's';
+        $values[] = $departureDate;
     }
     
     // Handle cancellation
@@ -164,11 +189,12 @@ try {
             'id' => (string) $updatedBooking['id'],
             'bookingReference' => $updatedBooking['booking_reference'],
             'status' => $updatedBooking['status'],
-            'paymentStatus' => $updatedBooking['payment_status']
+            'paymentStatus' => $updatedBooking['payment_status'],
+            'emailsSent' => $emailsSent
         ]
     ]);
     
-} catch (Exception $e) {
+} catch (Throwable $e) {
     sendJSON([
         'success' => false,
         'error' => $e->getMessage()

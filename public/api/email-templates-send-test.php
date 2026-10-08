@@ -20,6 +20,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
  */
 
 require_once __DIR__ . '/../../config.php';
+$__mailPath = __DIR__ . '/../../lib/MailService.php';
+if (!is_file($__mailPath)) {
+    sendJSON(['success' => false, 'error' => 'MailService library is not installed on the server'], 500);
+}
+require_once $__mailPath;
 
 try {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -38,7 +43,7 @@ try {
     $testEmail = $body['testEmail'];
 
     // Get template content
-    $contentSql = "SELECT subject, html_content FROM email_template_content WHERE template_id = ? AND language = ?";
+    $contentSql = "SELECT subject, html_content, text_content FROM email_template_content WHERE template_id = ? AND language = ?";
     $contentStmt = $conn->prepare($contentSql);
     $contentStmt->bind_param("ss", $templateId, $language);
     $contentStmt->execute();
@@ -51,6 +56,7 @@ try {
     $contentRow = $contentResult->fetch_assoc();
     $subject = $contentRow['subject'];
     $htmlContent = $contentRow['html_content'];
+    $textContent = $contentRow['text_content'] ?? null;
 
     // Replace placeholders with sample data if provided
     if (isset($body['placeholders']) && is_array($body['placeholders'])) {
@@ -60,11 +66,9 @@ try {
         }
     }
 
-    // Send test email
-    $headers = [
-        'Content-Type: text/html; charset=UTF-8',
-        'From: test@aventrabooking.com'
-    ];
+    // Send test email via configured SMTP (Hostinger)
+    $sendResult = sendSmtpEmail($conn, $testEmail, $subject, $htmlContent, $textContent);
+    $result = $sendResult['success'];
 
     $result = @mail($testEmail, $subject, $htmlContent, implode("\r\n", $headers));
 

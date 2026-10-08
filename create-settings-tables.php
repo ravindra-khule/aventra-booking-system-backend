@@ -87,14 +87,14 @@ try {
         ['Company', 'language_content', '[]', 'json', 'Per-language company content (JSON array)', 0, 1],
         
         // Email Configuration
-        ['Email', 'smtp_host', 'smtp.gmail.com', 'string', 'SMTP server host', 1, 0],
-        ['Email', 'smtp_port', '587', 'number', 'SMTP server port', 0, 0],
-        ['Email', 'smtp_username', '', 'email', 'SMTP username', 1, 0],
-        ['Email', 'smtp_password', '', 'string', 'SMTP password', 1, 0],
-        ['Email', 'from_email', 'noreply@swett.se', 'email', 'Default from email', 0, 0],
-        ['Email', 'from_name', 'Swett Booking System', 'string', 'Default from name', 0, 0],
-        ['Email', 'reply_to_email', 'support@swett.se', 'email', 'Reply-to email', 0, 0],
-        ['Email', 'service_provider', 'sendgrid', 'string', 'Email service (sendgrid/mailgun/smtp)', 0, 0],
+        ['Email', 'smtp_host', 'smtp.hostinger.com', 'string', 'SMTP server host', 1, 0],
+        ['Email', 'smtp_port', '465', 'number', 'SMTP server port (465 SSL / 587 STARTTLS)', 0, 0],
+        ['Email', 'smtp_username', '', 'email', 'SMTP username (full mailbox e.g. name@prismadot.com)', 1, 0],
+        ['Email', 'smtp_password', '', 'string', 'SMTP mailbox password', 1, 0],
+        ['Email', 'from_email', 'noreply@prismadot.com', 'email', 'Default from email', 0, 0],
+        ['Email', 'from_name', 'Aventra Booking', 'string', 'Default from name', 0, 0],
+        ['Email', 'reply_to_email', 'support@prismadot.com', 'email', 'Reply-to email', 0, 0],
+        ['Email', 'service_provider', 'smtp', 'string', 'Email service (sendgrid/mailgun/smtp)', 0, 0],
         ['Email', 'sendgrid_api_key', '', 'string', 'SendGrid API key', 1, 0],
         ['Email', 'mailgun_domain', '', 'string', 'Mailgun domain', 1, 0],
         ['Email', 'mailgun_api_key', '', 'string', 'Mailgun API key', 1, 0],
@@ -118,9 +118,15 @@ try {
         // Notifications
         ['Notification', 'booking_confirmation_enabled', '1', 'boolean', 'Send booking confirmation', 0, 0],
         ['Notification', 'booking_reminder_days', '7,3,1', 'string', 'Reminder days before tour', 0, 0],
+        ['Notification', 'booking_reminder_hours', '24', 'string', 'Hours before departure for reminders (comma separated)', 0, 0],
         ['Notification', 'payment_reminder_enabled', '1', 'boolean', 'Send payment reminders', 0, 0],
         ['Notification', 'cancellation_email_enabled', '1', 'boolean', 'Send cancellation emails', 0, 0],
         ['Notification', 'admin_notification_email', '', 'email', 'Admin notification email', 0, 0],
+        ['Notification', 'notify_customer_enabled', '1', 'boolean', 'Send lifecycle emails to the customer', 0, 0],
+        ['Notification', 'notify_client_enabled', '1', 'boolean', 'Send lifecycle emails to the client/business', 0, 0],
+        ['Notification', 'notify_admin_enabled', '0', 'boolean', 'Send lifecycle emails to the admin', 0, 0],
+        ['Notification', 'client_notification_email', '', 'email', 'Client/business notification email (defaults to Company email)', 0, 0],
+        ['Notification', 'disabled_events', 'booking_cancelled_user,booking_cancelled_client,booking_rescheduled,booking_reminder', 'string', 'Lifecycle events that never send email (comma separated)', 0, 0],
         
         // System
         ['System', 'site_name', 'Swett Booking System', 'string', 'Application name', 0, 1],

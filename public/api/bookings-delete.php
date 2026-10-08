@@ -53,17 +53,20 @@ try {
     }
     
     $conn = getDB();
+    $conn->begin_transaction();
     
     // Check if booking exists
-    $checkSql = "SELECT id FROM bookings WHERE id = ? AND deleted_at IS NULL";
+    $checkSql = "SELECT id, status, tour_id, number_of_people FROM bookings WHERE id = ? AND deleted_at IS NULL";
     $checkStmt = $conn->prepare($checkSql);
     $checkStmt->bind_param('i', $id);
     $checkStmt->execute();
     $checkResult = $checkStmt->get_result();
     
     if ($checkResult->num_rows === 0) {
+        $conn->rollback();
         sendJSON(['success' => false, 'error' => 'Booking not found'], 404);
     }
+    $booking = $checkResult->fetch_assoc();
     $checkStmt->close();
     
     // Soft delete the booking (mark as deleted)
@@ -77,6 +80,7 @@ try {
     $deleteStmt->bind_param('i', $id);
     
     if (!$deleteStmt->execute()) {
+        $conn->rollback();
         sendJSON(['success' => false, 'error' => 'Failed to delete booking'], 500);
     }
     
@@ -92,20 +96,6 @@ try {
     }
     
     $conn->commit();
-    
-    // Notify cancellation (admin-side delete = client cancellation) - non-fatal
-    $emailsSent = 0;
-    $cancelledBy = strtolower(trim($body['cancelledBy'] ?? 'client'));
-    try {
-        if (function_exists('notifyBookingEvent')) {
-            $event = $cancelledBy === 'customer' ? 'booking_cancelled_user' : 'booking_cancelled_client';
-            $result = notifyBookingEvent($conn, $event, (int) $id, ['reason' => $body['reason'] ?? '']);
-            $emailsSent = $result['sent'];
-            cancelBookingReminders($conn, (int) $id);
-        }
-    } catch (Throwable $notifyError) {
-        debugLog('Booking Notify Error (delete)', ['error' => $notifyError->getMessage()]);
-    }
     $conn->close();
     
     sendJSON([

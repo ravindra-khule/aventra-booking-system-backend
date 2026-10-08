@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 /**
- * POST /api/bookings.php
+ * POST /api/bookings-create.php
  * Create a new tour booking
  */
 
@@ -42,10 +42,16 @@ try {
     // Validate required fields
     $userId = $body['userId'] ?? null;
     $tourId = $body['tourId'] ?? null;
-    $numberOfPeople = $body['numberOfPeople'] ?? null;
-    $customerName = $body['customerName'] ?? null;
-    $customerEmail = $body['customerEmail'] ?? null;
+    $numberOfPeople = (int) ($body['numberOfPeople'] ?? 0);
+    $customerName = trim($body['customerName'] ?? '');
+    $customerEmail = trim($body['customerEmail'] ?? '');
     $customerPhone = $body['customerPhone'] ?? null;
+    $specialRequirements = $body['specialRequirements'] ?? null;
+    $departureDate = $body['departureDate'] ?? null;
+    $promoCode = isset($body['promoCode']) ? strtoupper(trim($body['promoCode'])) : null;
+    $paymentType = strtolower(trim($body['paymentType'] ?? 'advance')); // 'full' | 'advance'
+    $travelers = isset($body['travelers']) && is_array($body['travelers']) ? $body['travelers'] : [];
+    $addOns = isset($body['addOns']) && is_array($body['addOns']) ? $body['addOns'] : [];
     
     if (!$userId || !$tourId || !$numberOfPeople || !$customerName || !$customerEmail) {
         sendJSON(['success' => false, 'error' => 'Missing required fields'], 400);
@@ -55,7 +61,12 @@ try {
         sendJSON(['success' => false, 'error' => 'Number of people must be at least 1'], 400);
     }
     
+    if (!filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) {
+        sendJSON(['success' => false, 'error' => 'Invalid email format'], 400);
+    }
+    
     $conn = getDB();
+    $conn->begin_transaction();
     
     try {
         // Get tour details (must be bookable: active and not deleted)
@@ -286,20 +297,6 @@ try {
         $itemStmt->close();
         
         $conn->commit();
-        
-        // Send "booking created" notifications + schedule reminders (non-fatal)
-        $notifySummary = null;
-        try {
-            if (function_exists('notifyBookingEvent')) {
-                $notifySummary = notifyBookingEvent($conn, 'booking_created', (int) $bookingId, [
-                    'promoCode' => $promoCode,
-                ]);
-                scheduleBookingReminders($conn, (int) $bookingId);
-            }
-        } catch (Throwable $notifyError) {
-            debugLog('Booking Notify Error (create)', ['error' => $notifyError->getMessage()]);
-        }
-        
         $conn->close();
         
         sendJSON([
@@ -318,18 +315,17 @@ try {
                 'balanceDue' => (float) $balanceDue,
                 'departureDate' => $departureDate,
                 'status' => 'pending',
-                'paymentStatus' => $paymentStatus,
-                'emailsSent' => $notifySummary['sent'] ?? 0
+                'paymentStatus' => $paymentStatus
             ]
         ], 201);
         
-    } catch (Throwable $e) {
+    } catch (Exception $e) {
         $conn->rollback();
         $conn->close();
         sendJSON(['success' => false, 'error' => $e->getMessage()], 500);
     }
     
-} catch (Throwable $e) {
+} catch (Exception $e) {
     sendJSON([
         'success' => false,
         'error' => $e->getMessage()

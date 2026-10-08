@@ -44,7 +44,7 @@ try {
                 created_at,
                 updated_at
             FROM promo_codes 
-            WHERE (deleted_at IS NULL OR deleted_at = '0000-00-00 00:00:00')
+            WHERE deleted_at IS NULL
             ORDER BY is_active DESC, created_at DESC";
     
     $result = $conn->query($sql);

@@ -69,15 +69,17 @@ try {
     }
     
     $conn = getDB();
+    $conn->begin_transaction();
     
     // Check if booking exists
-    $checkSql = "SELECT id, status, payment_status, tour_id, number_of_people, departure_date FROM bookings WHERE id = ? AND deleted_at IS NULL";
+    $checkSql = "SELECT id, status, tour_id, number_of_people FROM bookings WHERE id = ? AND deleted_at IS NULL";
     $checkStmt = $conn->prepare($checkSql);
     $checkStmt->bind_param('i', $bookingId);
     $checkStmt->execute();
     $checkResult = $checkStmt->get_result();
     
     if ($checkResult->num_rows === 0) {
+        $conn->rollback();
         sendJSON(['success' => false, 'error' => 'Booking not found'], 404);
     }
     
@@ -147,6 +149,7 @@ try {
     $updateStmt->bind_param($types, ...$values);
     
     if (!$updateStmt->execute()) {
+        $conn->rollback();
         sendJSON(['success' => false, 'error' => 'Failed to update booking'], 500);
     }
     
@@ -163,63 +166,6 @@ try {
     }
     
     $conn->commit();
-    
-    // ---- Lifecycle notifications (non-fatal) ----
-    $emailsSent = 0;
-    try {
-        if (!function_exists('notifyBookingEvent')) {
-            throw new Exception('BookingNotifier not available');
-        }
-        $oldStatus = $existingBooking['status'];
-        $oldPayment = $existingBooking['payment_status'];
-        $oldDeparture = $existingBooking['departure_date'];
-        $events = [];
-        $extra = ['reason' => $notes ?? ''];
-
-        if ($status && $status !== $oldStatus) {
-            if ($status === 'confirmed') {
-                $events[] = 'booking_approved';
-            } elseif ($status === 'completed') {
-                $events[] = 'booking_completed';
-            } elseif ($status === 'cancelled') {
-                $events[] = $rejected
-                    ? 'booking_rejected'
-                    : ($cancelledBy === 'customer' ? 'booking_cancelled_user' : 'booking_cancelled_client');
-            } elseif ($status === 'refunded') {
-                $events[] = 'payment_refunded';
-            }
-        }
-
-        if ($paymentStatus && $paymentStatus !== $oldPayment) {
-            if ($paymentStatus === 'paid') {
-                $events[] = 'payment_success';
-            } elseif ($paymentStatus === 'refunded' && $status !== 'refunded') {
-                $events[] = 'payment_refunded';
-            }
-        }
-
-        $rescheduled = ($departureDate !== null && $departureDate !== '' && $departureDate !== $oldDeparture);
-        if ($rescheduled) {
-            $events[] = 'booking_rescheduled';
-            $extra['previousDate'] = $oldDeparture;
-            $extra['newDate'] = $departureDate;
-        }
-
-        foreach (array_unique($events) as $event) {
-            $result = notifyBookingEvent($conn, $event, (int) $bookingId, $extra);
-            $emailsSent += $result['sent'];
-        }
-
-        // Keep the reminder queue in sync with the lifecycle
-        if ($rescheduled || in_array('booking_approved', $events, true)) {
-            scheduleBookingReminders($conn, (int) $bookingId);
-        }
-        if ($status === 'cancelled' || $status === 'refunded') {
-            cancelBookingReminders($conn, (int) $bookingId);
-        }
-    } catch (Throwable $notifyError) {
-        debugLog('Booking Notify Error (update)', ['error' => $notifyError->getMessage()]);
-    }
     
     // Get updated booking
     $getSql = "SELECT 

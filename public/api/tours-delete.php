@@ -50,7 +50,7 @@ try {
     $conn = getDB();
     
     // Check if tour exists
-    $checkSql = "SELECT id FROM tours WHERE id = ?";
+    $checkSql = "SELECT id FROM tours WHERE id = ? AND deleted_at IS NULL";
     $checkStmt = $conn->prepare($checkSql);
     $checkStmt->bind_param('i', $id);
     $checkStmt->execute();
@@ -61,8 +61,8 @@ try {
     }
     $checkStmt->close();
     
-    // Delete the tour
-    $deleteSql = "DELETE FROM tours WHERE id = ?";
+    // Soft delete the tour (keeps bookings referencing it intact)
+    $deleteSql = "UPDATE tours SET deleted_at = NOW(), updated_at = NOW() WHERE id = ?";
     $deleteStmt = $conn->prepare($deleteSql);
     
     if (!$deleteStmt) {

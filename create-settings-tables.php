@@ -4,13 +4,10 @@
  * Run once: php create-settings-tables.php
  */
 
-$host = 'localhost';
-$user = 'root';
-$pass = '';
-$db = 'aventra_db';
+require_once __DIR__ . '/config.php';
 
 try {
-    $conn = new mysqli($host, $user, $pass, $db);
+    $conn = getDB();
     
     if ($conn->connect_error) {
         die("❌ Connection failed: " . $conn->connect_error);
@@ -20,10 +17,11 @@ try {
     echo "==============================\n\n";
     
     // Create settings table
+    // NOTE: column is `key` to match public/api/settings-*.php endpoints
     $sql = "CREATE TABLE IF NOT EXISTS settings (
         id INT AUTO_INCREMENT PRIMARY KEY,
         category VARCHAR(100) NOT NULL,
-        key_name VARCHAR(255) NOT NULL,
+        `key` VARCHAR(255) NOT NULL,
         value LONGTEXT,
         type ENUM('string', 'number', 'boolean', 'json', 'email', 'url') DEFAULT 'string',
         description TEXT,
@@ -31,7 +29,7 @@ try {
         is_public TINYINT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        UNIQUE KEY unique_category_key (category, key_name),
+        UNIQUE KEY unique_category_key (category, `key`),
         INDEX idx_category (category)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
     
@@ -41,17 +39,21 @@ try {
     echo "✅ Settings table created/exists\n";
     
     // Create settings data table for audit trail
+    // NOTE: column names match the INSERT in public/api/settings-update.php
     $sql = "CREATE TABLE IF NOT EXISTS settings_audit (
         id INT AUTO_INCREMENT PRIMARY KEY,
         setting_id INT,
-        user_id INT,
+        category VARCHAR(100),
+        `key` VARCHAR(255),
         old_value LONGTEXT,
         new_value LONGTEXT,
-        action VARCHAR(50),
+        changed_by INT,
         ip_address VARCHAR(45),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        user_agent VARCHAR(255),
+        changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_setting_id (setting_id),
-        INDEX idx_created_at (created_at)
+        INDEX idx_category (category),
+        INDEX idx_changed_at (changed_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
     
     if (!$conn->query($sql)) {
@@ -72,6 +74,17 @@ try {
         ['Company', 'country', 'Sweden', 'string', 'Company country', 0, 0],
         ['Company', 'vat_number', '', 'string', 'Company VAT number', 0, 0],
         ['Company', 'logo_url', '', 'url', 'Company logo URL', 0, 0],
+        ['Company', 'logo_filename', '', 'string', 'Company logo file name', 0, 0],
+        ['Company', 'registration_number', '', 'string', 'Business registration number', 0, 0],
+        ['Company', 'statutory_ids', '', 'string', 'Additional statutory IDs', 0, 0],
+        ['Company', 'bank_name', '', 'string', 'Bank name', 0, 0],
+        ['Company', 'bank_account_number', '', 'string', 'Bank account number', 0, 0],
+        ['Company', 'bank_swift_code', '', 'string', 'IFSC/SWIFT code', 0, 0],
+        ['Company', 'bank_branch_name', '', 'string', 'Bank branch name', 0, 0],
+        ['Company', 'social_media', '[]', 'json', 'Social media links (JSON array)', 0, 1],
+        ['Company', 'business_hours', '[]', 'json', 'Business hours (JSON array)', 0, 1],
+        ['Company', 'about_text', '', 'string', 'Company about/description text', 0, 1],
+        ['Company', 'language_content', '[]', 'json', 'Per-language company content (JSON array)', 0, 1],
         
         // Email Configuration
         ['Email', 'smtp_host', 'smtp.hostinger.com', 'string', 'SMTP server host', 1, 0],
@@ -135,7 +148,7 @@ try {
     ];
     
     foreach ($defaultSettings as [$category, $key, $value, $type, $description, $encrypted, $public]) {
-        $sql = "INSERT IGNORE INTO settings (category, key_name, value, type, description, is_encrypted, is_public)
+        $sql = "INSERT IGNORE INTO settings (category, `key`, value, type, description, is_encrypted, is_public)
                 VALUES (?, ?, ?, ?, ?, ?, ?)";
         $stmt = $conn->prepare($sql);
         if (!$stmt) {

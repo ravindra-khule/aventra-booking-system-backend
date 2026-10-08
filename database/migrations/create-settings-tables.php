@@ -49,6 +49,17 @@ try {
         ['Company', 'address', 'Stockholm, Sweden', 'string', 'Physical address', true],
         ['Company', 'vat_number', 'SE123456789012', 'string', 'VAT/Tax ID', false],
         ['Company', 'logo_url', '/images/aventra-logo.png', 'url', 'Logo file path', true],
+        ['Company', 'logo_filename', '', 'string', 'Logo file name', false],
+        ['Company', 'registration_number', '', 'string', 'Business registration number', false],
+        ['Company', 'statutory_ids', '', 'string', 'Additional statutory IDs', false],
+        ['Company', 'bank_name', '', 'string', 'Bank name', false],
+        ['Company', 'bank_account_number', '', 'string', 'Bank account number', false],
+        ['Company', 'bank_swift_code', '', 'string', 'IFSC/SWIFT code', false],
+        ['Company', 'bank_branch_name', '', 'string', 'Bank branch name', false],
+        ['Company', 'social_media', '[]', 'json', 'Social media links (JSON array)', true],
+        ['Company', 'business_hours', '[]', 'json', 'Business hours (JSON array)', true],
+        ['Company', 'about_text', '', 'string', 'Company about/description text', true],
+        ['Company', 'language_content', '[]', 'json', 'Per-language company content (JSON array)', true],
         
         // Email Settings (11)
         ['Email', 'from_email', 'noreply@prismadot.com', 'email', 'Sender email address', false],

@@ -63,15 +63,14 @@ try {
         foreach ($body['placeholders'] as $placeholder => $value) {
             $htmlContent = str_replace('{{' . $placeholder . '}}', (string)$value, $htmlContent);
             $subject = str_replace('{{' . $placeholder . '}}', (string)$value, $subject);
-            if ($textContent !== null) {
-                $textContent = str_replace('{{' . $placeholder . '}}', (string)$value, $textContent);
-            }
         }
     }
 
     // Send test email via configured SMTP (Hostinger)
     $sendResult = sendSmtpEmail($conn, $testEmail, $subject, $htmlContent, $textContent);
     $result = $sendResult['success'];
+
+    $result = @mail($testEmail, $subject, $htmlContent, implode("\r\n", $headers));
 
     $now = date('Y-m-d H:i:s');
     $createdBy = $body['createdBy'] ?? 'system';
@@ -82,9 +81,7 @@ try {
                    VALUES (?, 'TEST_EMAIL_SENT', ?, ?, ?)";
 
         $logStmt = $conn->prepare($logSql);
-        $now = date('Y-m-d H:i:s');
         $details = json_encode(['email' => $testEmail, 'language' => $language]);
-        $createdBy = $body['createdBy'] ?? 'system';
 
         $logStmt->bind_param("ssss", $templateId, $details, $createdBy, $now);
         $logStmt->execute();
@@ -93,27 +90,14 @@ try {
             'success' => true,
             'data' => [
                 'message' => 'Test email sent successfully',
-                'email' => $testEmail
+                'email' => $testEmail,
+                'simulated' => false
             ]
         ]);
-    } else {
-        sendJSON([
-            'success' => false,
-            'error' => 'Failed to send test email'
-        ], 500);
     }
 
-    // SMTP is configured but the send failed - surface the real error so it
-    // can be fixed instead of silently simulating success.
-    if (!empty($sendResult['configured'])) {
-        sendJSON([
-            'success' => false,
-            'error' => 'SMTP send failed: ' . ($sendResult['error'] ?? 'unknown error')
-        ], 500);
-    }
-
-    // SMTP not configured (e.g. local dev) - save the rendered email to disk
-    // so it can still be inspected, and log it.
+    // Mail transport unavailable (e.g. local Docker without MTA) - save the
+    // rendered email to disk so it can still be inspected, and log it.
     $emailsDir = __DIR__ . '/../../storage/emails';
     if (!is_dir($emailsDir)) {
         @mkdir($emailsDir, 0755, true);
@@ -144,7 +128,7 @@ try {
         ]
     ]);
 
-} catch (Throwable $e) {
+} catch (Exception $e) {
     debugLog('Email Template Send Test Error', ['error' => $e->getMessage()]);
     sendJSON(['success' => false, 'error' => $e->getMessage()], 500);
 }

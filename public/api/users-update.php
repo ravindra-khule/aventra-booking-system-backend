@@ -91,6 +91,12 @@ try {
         $types .= 's';
     }
     
+    if (isset($body['status'])) {
+        $updateFields[] = "status = ?";
+        $params[] = $body['status'];
+        $types .= 's';
+    }
+    
     if (isset($body['password'])) {
         $hashedPassword = password_hash($body['password'], PASSWORD_BCRYPT);
         $updateFields[] = "password = ?";

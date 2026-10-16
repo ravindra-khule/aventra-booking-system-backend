@@ -50,29 +50,48 @@ try {
     $result = $checkStmt->get_result();
     
     if ($result->num_rows === 0) {
-        sendJSON(['success' => false, 'error' => 'Setting not found'], 404);
+        // Setting doesn't exist yet - create it (upsert)
+        $checkStmt->close();
+        
+        $insertSql = "INSERT INTO settings (category, `key`, value, type, description, is_public)
+                      VALUES (?, ?, ?, 'string', '', 0)";
+        $insertStmt = $conn->prepare($insertSql);
+        
+        if (!$insertStmt) {
+            sendJSON(['success' => false, 'error' => 'Query prepare failed'], 500);
+        }
+        
+        $insertStmt->bind_param('sss', $category, $key, $value);
+        
+        if (!$insertStmt->execute()) {
+            sendJSON(['success' => false, 'error' => 'Failed to create setting'], 400);
+        }
+        
+        $settingId = $conn->insert_id;
+        $oldValue = null;
+        $insertStmt->close();
+    } else {
+        $setting = $result->fetch_assoc();
+        $settingId = $setting['id'];
+        $oldValue = $setting['value'];
+        $checkStmt->close();
+        
+        // Update setting
+        $updateSql = "UPDATE settings SET value = ? WHERE category = ? AND `key` = ?";
+        $updateStmt = $conn->prepare($updateSql);
+
+        if (!$updateStmt) {
+            sendJSON(['success' => false, 'error' => 'Query prepare failed'], 500);
+        }
+
+        $updateStmt->bind_param('sss', $value, $category, $key);
+
+        if (!$updateStmt->execute()) {
+            sendJSON(['success' => false, 'error' => 'Failed to update setting'], 400);
+        }
+        $updateStmt->close();
     }
-    
-    $setting = $result->fetch_assoc();
-    $settingId = $setting['id'];
-    $oldValue = $setting['value'];
-    $checkStmt->close();
-    
-    // Update setting
-    $updateSql = "UPDATE settings SET value = ? WHERE category = ? AND `key` = ?";
-    $updateStmt = $conn->prepare($updateSql);
-    
-    if (!$updateStmt) {
-        sendJSON(['success' => false, 'error' => 'Query prepare failed'], 500);
-    }
-    
-    $updateStmt->bind_param('sss', $value, $category, $key);
-    
-    if (!$updateStmt->execute()) {
-        sendJSON(['success' => false, 'error' => 'Failed to update setting'], 400);
-    }
-    $updateStmt->close();
-    
+
     // Log to audit trail
     $userId = 1; // Would come from auth in production
     $ipAddress = $_SERVER['REMOTE_ADDR'] ?? 'unknown';

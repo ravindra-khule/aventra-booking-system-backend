@@ -61,8 +61,46 @@ try {
         sendJSON(['success' => false, 'error' => 'Number of people must be at least 1'], 400);
     }
     
+    if ($numberOfPeople > 50) {
+        sendJSON(['success' => false, 'error' => 'Number of people exceeds the maximum allowed per booking'], 400);
+    }
+    
+    if (mb_strlen($customerName) > 150) {
+        sendJSON(['success' => false, 'error' => 'Customer name is too long'], 400);
+    }
+    
     if (!filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) {
         sendJSON(['success' => false, 'error' => 'Invalid email format'], 400);
+    }
+    
+    if (mb_strlen($customerEmail) > 254) {
+        sendJSON(['success' => false, 'error' => 'Email address is too long'], 400);
+    }
+    
+    if (!in_array($paymentType, ['full', 'advance'], true)) {
+        sendJSON(['success' => false, 'error' => 'Invalid payment type'], 400);
+    }
+    
+    if ($departureDate !== null && $departureDate !== '') {
+        $d = DateTime::createFromFormat('Y-m-d', $departureDate);
+        if (!$d || $d->format('Y-m-d') !== $departureDate) {
+            sendJSON(['success' => false, 'error' => 'Invalid departure date format (expected YYYY-MM-DD)'], 400);
+        }
+        if ($departureDate < date('Y-m-d')) {
+            sendJSON(['success' => false, 'error' => 'Departure date cannot be in the past'], 400);
+        }
+    }
+    
+    if ($customerPhone !== null && mb_strlen((string) $customerPhone) > 30) {
+        sendJSON(['success' => false, 'error' => 'Phone number is too long'], 400);
+    }
+    
+    if ($specialRequirements !== null && mb_strlen((string) $specialRequirements) > 2000) {
+        sendJSON(['success' => false, 'error' => 'Special requirements text is too long'], 400);
+    }
+    
+    if (count($travelers) > $numberOfPeople) {
+        sendJSON(['success' => false, 'error' => 'More travelers listed than the number of people booked'], 400);
     }
     
     $conn = getDB();

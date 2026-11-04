@@ -150,7 +150,78 @@ function sendSmtpEmail($conn, $to, $subject, $html, $text = null) {
         ];
     }
 
+    // Best-effort: record the outbound email in communication_logs
+    logCommunicationEmail($conn, $to, $subject, $html, $config);
+
     return ['success' => true, 'configured' => true];
+}
+
+/**
+ * Record an outbound email in communication_logs (best-effort, never fatal).
+ * Links the log to a customer when the recipient email matches one.
+ */
+function logCommunicationEmail($conn, $to, $subject, $html, $config = []) {
+    try {
+        // Table may not exist yet on older installs - bail quietly
+        $tableCheck = @$conn->query("SHOW TABLES LIKE 'communication_logs'");
+        if (!$tableCheck || $tableCheck->num_rows === 0) {
+            return;
+        }
+
+        $customerId = null;
+        $recipientName = null;
+        $custStmt = $conn->prepare("SELECT id, first_name, last_name FROM customers WHERE email = ? AND deleted_at IS NULL LIMIT 1");
+        if ($custStmt) {
+            $custStmt->bind_param('s', $to);
+            $custStmt->execute();
+            $custRow = $custStmt->get_result()->fetch_assoc();
+            $custStmt->close();
+            if ($custRow) {
+                $customerId = (int) $custRow['id'];
+                $recipientName = trim($custRow['first_name'] . ' ' . $custRow['last_name']);
+            }
+        }
+
+        $senderName = $config['from_name'] ?? 'System';
+        $senderEmail = $config['from_email'] ?? null;
+        // Store plain-text-ish content for readability in the admin UI
+        $content = trim(preg_replace('/\s+/', ' ', strip_tags($html ?? '')));
+        if (function_exists('mb_substr')) {
+            $content = mb_substr($content, 0, 2000);
+        } else {
+            $content = substr($content, 0, 2000);
+        }
+        $type = 'email';
+        $direction = 'outbound';
+        $status = 'sent';
+        $senderType = 'staff';
+        $sentAt = date('Y-m-d H:i:s');
+        $tags = json_encode(['system-email']);
+
+        $stmt = $conn->prepare(
+            "INSERT INTO communication_logs
+             (customer_id, type, direction, status, subject, content,
+              sender_name, sender_email, sender_type,
+              recipient_name, recipient_email, sent_at, tags)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        );
+        if (!$stmt) {
+            return;
+        }
+        $stmt->bind_param(
+            'issssssssssss',
+            $customerId, $type, $direction, $status, $subject, $content,
+            $senderName, $senderEmail, $senderType,
+            $recipientName, $to, $sentAt, $tags
+        );
+        @$stmt->execute();
+        $stmt->close();
+    } catch (Throwable $e) {
+        // Never let logging break email sending
+        if (function_exists('debugLog')) {
+            debugLog('COMMUNICATION LOG FAILED', ['to' => $to, 'error' => $e->getMessage()]);
+        }
+    }
 }
 
 /**

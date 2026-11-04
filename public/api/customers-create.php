@@ -94,18 +94,19 @@ try {
         'message' => 'Customer created successfully',
         'data' => [
             'id' => (int) $customerId,
-            'firstName' => $firstName,
-            'lastName' => $lastName,
+            'first_name' => $firstName,
+            'last_name' => $lastName,
             'email' => $email,
             'phone' => $phone,
             'address' => $address,
-            'zipCode' => $zipCode,
+            'zip_code' => $zipCode,
             'city' => $city,
             'country' => $country,
             'notes' => $notes,
-            'totalBookings' => 0,
-            'totalSpent' => 0,
-            'createdDate' => date('Y-m-d H:i:s')
+            'last_booking_date' => null,
+            'total_bookings' => 0,
+            'total_spent' => 0,
+            'created_at' => date('Y-m-d H:i:s')
         ]
     ], 201);
     

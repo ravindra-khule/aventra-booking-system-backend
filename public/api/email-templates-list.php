@@ -76,24 +76,12 @@ try {
     $result = $stmt->get_result();
 
     $templates = [];
+    $templateIds = [];
     while ($row = $result->fetch_assoc()) {
-        // Get template content for each language
-        $contentSql = "SELECT language, subject, html_content, text_content FROM email_template_content WHERE template_id = ?";
-        $contentStmt = $conn->prepare($contentSql);
-        $contentStmt->bind_param("s", $row['id']);
-        $contentStmt->execute();
-        $contentResult = $contentStmt->get_result();
-
-        $content = [];
-        while ($contentRow = $contentResult->fetch_assoc()) {
-            $content[] = [
-                'language' => $contentRow['language'],
-                'subject' => $contentRow['subject'],
-                'htmlContent' => $contentRow['html_content'],
-                'textContent' => $contentRow['text_content']
-            ];
-        }
-
+        // Parse tags from JSON
+        $tags = $row['tags'] ? json_decode($row['tags'], true) : [];
+        
+        $templateIds[] = $row['id'];
         $templates[] = [
             'id' => $row['id'],
             'name' => $row['name'],
@@ -104,12 +92,42 @@ try {
             'isDefault' => (bool)$row['is_default'],
             'tags' => json_decode($row['tags'] ?? '[]', true),
             'usageCount' => (int)$row['usage_count'],
-            'content' => $content,
+            'content' => [],
             'createdBy' => $row['created_by'],
             'createdDate' => $row['created_date'],
             'lastModified' => $row['last_modified'],
             'lastModifiedBy' => $row['last_modified_by']
         ];
+    }
+
+    // Fetch content for all templates in a single query
+    if (!empty($templateIds)) {
+        $placeholders = implode(',', array_fill(0, count($templateIds), '?'));
+        $contentSql = "SELECT template_id, language, subject, preheader, html_content, text_content
+                       FROM email_template_content
+                       WHERE template_id IN ($placeholders)
+                       ORDER BY template_id, language";
+
+        $contentStmt = $conn->prepare($contentSql);
+        $contentStmt->bind_param(str_repeat('s', count($templateIds)), ...$templateIds);
+        $contentStmt->execute();
+        $contentResult = $contentStmt->get_result();
+
+        $contentByTemplate = [];
+        while ($contentRow = $contentResult->fetch_assoc()) {
+            $contentByTemplate[$contentRow['template_id']][] = [
+                'language' => $contentRow['language'],
+                'subject' => $contentRow['subject'],
+                'preheader' => $contentRow['preheader'],
+                'htmlContent' => $contentRow['html_content'],
+                'textContent' => $contentRow['text_content']
+            ];
+        }
+
+        foreach ($templates as &$template) {
+            $template['content'] = $contentByTemplate[$template['id']] ?? [];
+        }
+        unset($template);
     }
 
     sendJSON([

@@ -58,7 +58,7 @@ try {
                 is_active
             FROM promo_codes 
             WHERE code = ? 
-            AND (deleted_at IS NULL OR deleted_at = '0000-00-00 00:00:00')
+            AND deleted_at IS NULL
             LIMIT 1";
     
     $stmt = $conn->prepare($sql);

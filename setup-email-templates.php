@@ -43,6 +43,7 @@ try {
         template_id VARCHAR(50) NOT NULL,
         language VARCHAR(10) NOT NULL,
         subject VARCHAR(255) NOT NULL,
+        preheader VARCHAR(255),
         html_content LONGTEXT NOT NULL,
         text_content LONGTEXT,
         UNIQUE KEY unique_template_language (template_id, language),
@@ -54,6 +55,16 @@ try {
         echo "✓ email_template_content table created/exists\n";
     } else {
         throw new Exception("Error creating email_template_content table: " . $conn->error);
+    }
+    
+    // Add preheader column to existing tables (MySQL has no ADD COLUMN IF NOT EXISTS)
+    $colCheck = $conn->query("SHOW COLUMNS FROM email_template_content LIKE 'preheader'");
+    if ($colCheck && $colCheck->num_rows === 0) {
+        if ($conn->query("ALTER TABLE email_template_content ADD COLUMN preheader VARCHAR(255) NULL AFTER subject") === TRUE) {
+            echo "✓ preheader column added to email_template_content\n";
+        } else {
+            throw new Exception("Error adding preheader column: " . $conn->error);
+        }
     }
     
     // Email Template Versions Table

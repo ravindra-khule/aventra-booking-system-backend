@@ -70,8 +70,8 @@ try {
 
     // Create template content for each language
     foreach ($body['content'] as $content) {
-        $contentSql = "INSERT INTO email_template_content (template_id, language, subject, html_content, text_content)
-                       VALUES (?, ?, ?, ?, ?)";
+        $contentSql = "INSERT INTO email_template_content (template_id, language, subject, preheader, html_content, text_content)
+                       VALUES (?, ?, ?, ?, ?, ?)";
         
         $contentStmt = $conn->prepare($contentSql);
         if (!$contentStmt) {
@@ -80,10 +80,11 @@ try {
 
         $language = $content['language'];
         $subject = $content['subject'];
+        $preheader = $content['preheader'] ?? '';
         $htmlContent = $content['htmlContent'];
         $textContent = $content['textContent'] ?? '';
 
-        $contentStmt->bind_param("sssss", $templateId, $language, $subject, $htmlContent, $textContent);
+        $contentStmt->bind_param("ssssss", $templateId, $language, $subject, $preheader, $htmlContent, $textContent);
 
         if (!$contentStmt->execute()) {
             throw new Exception("Content execute failed: " . $contentStmt->error);

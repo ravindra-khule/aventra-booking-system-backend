@@ -24,12 +24,16 @@ CREATE TABLE IF NOT EXISTS email_template_content (
     template_id VARCHAR(50) NOT NULL,
     language VARCHAR(10) NOT NULL,
     subject VARCHAR(255) NOT NULL,
+    preheader VARCHAR(255),
     html_content LONGTEXT NOT NULL,
     text_content LONGTEXT,
     UNIQUE KEY unique_template_language (template_id, language),
     FOREIGN KEY (template_id) REFERENCES email_templates(id) ON DELETE CASCADE,
     INDEX idx_language (language)
 );
+
+-- For existing installations, add the preheader column:
+-- ALTER TABLE email_template_content ADD COLUMN preheader VARCHAR(255) NULL AFTER subject;
 
 -- Email Template Versions Table
 CREATE TABLE IF NOT EXISTS email_template_versions (

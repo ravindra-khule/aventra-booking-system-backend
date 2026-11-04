@@ -49,50 +49,33 @@ try {
     $checkStmt->execute();
     $result = $checkStmt->get_result();
     
-    if ($result->num_rows === 0) {
-        // Setting doesn't exist yet - create it (upsert)
-        $checkStmt->close();
-        
-        $insertSql = "INSERT INTO settings (category, `key`, value, type, description, is_public)
-                      VALUES (?, ?, ?, 'string', '', 0)";
-        $insertStmt = $conn->prepare($insertSql);
-        
-        if (!$insertStmt) {
-            sendJSON(['success' => false, 'error' => 'Query prepare failed'], 500);
-        }
-        
-        $insertStmt->bind_param('sss', $category, $key, $value);
-        
-        if (!$insertStmt->execute()) {
-            sendJSON(['success' => false, 'error' => 'Failed to create setting'], 400);
-        }
-        
-        $settingId = $conn->insert_id;
-        $oldValue = null;
-        $insertStmt->close();
-    } else {
-        $setting = $result->fetch_assoc();
-        $settingId = $setting['id'];
-        $oldValue = $setting['value'];
-        $checkStmt->close();
-        
-        // Update setting
-        $updateSql = "UPDATE settings SET value = ? WHERE category = ? AND `key` = ?";
-        $updateStmt = $conn->prepare($updateSql);
-
-        if (!$updateStmt) {
-            sendJSON(['success' => false, 'error' => 'Query prepare failed'], 500);
-        }
-
-        $updateStmt->bind_param('sss', $value, $category, $key);
-
-        if (!$updateStmt->execute()) {
-            sendJSON(['success' => false, 'error' => 'Failed to update setting'], 400);
-        }
-        $updateStmt->close();
+    $setting = $result->fetch_assoc();
+    $settingId = $setting ? (int) $setting['id'] : null;
+    $oldValue = $setting ? $setting['value'] : null;
+    $checkStmt->close();
+    
+    // Upsert setting (create the key if it doesn't exist yet)
+    $upsertSql = "INSERT INTO settings (category, `key`, value)
+                  VALUES (?, ?, ?)
+                  ON DUPLICATE KEY UPDATE value = VALUES(value)";
+    $updateStmt = $conn->prepare($upsertSql);
+    
+    if (!$updateStmt) {
+        sendJSON(['success' => false, 'error' => 'Query prepare failed'], 500);
     }
-
-    // Log to audit trail
+    
+    $updateStmt->bind_param('sss', $category, $key, $value);
+    
+    if (!$updateStmt->execute()) {
+        sendJSON(['success' => false, 'error' => 'Failed to update setting'], 400);
+    }
+    
+    if ($settingId === null) {
+        $settingId = $conn->insert_id;
+    }
+    $updateStmt->close();
+    
+    // Log to audit trail (non-fatal if it fails)
     $userId = 1; // Would come from auth in production
     $ipAddress = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
     $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
@@ -100,9 +83,11 @@ try {
     $auditSql = "INSERT INTO settings_audit (setting_id, category, `key`, old_value, new_value, changed_by, ip_address, user_agent)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
     $auditStmt = $conn->prepare($auditSql);
-    $auditStmt->bind_param('issssiss', $settingId, $category, $key, $oldValue, $value, $userId, $ipAddress, $userAgent);
-    $auditStmt->execute();
-    $auditStmt->close();
+    if ($auditStmt) {
+        $auditStmt->bind_param('issssiss', $settingId, $category, $key, $oldValue, $value, $userId, $ipAddress, $userAgent);
+        $auditStmt->execute();
+        $auditStmt->close();
+    }
     
     $conn->close();
     

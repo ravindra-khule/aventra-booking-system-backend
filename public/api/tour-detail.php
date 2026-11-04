@@ -59,7 +59,7 @@ try {
                 created_at,
                 updated_at
             FROM tours 
-            WHERE id = ? AND status = 'active'
+            WHERE id = ? AND status = 'active' AND deleted_at IS NULL
             LIMIT 1";
     
     $stmt = $conn->prepare($sql);

@@ -100,32 +100,41 @@ try {
 
         // Insert new content
         foreach ($body['content'] as $content) {
-            $contentSql = "INSERT INTO email_template_content (template_id, language, subject, html_content, text_content)
-                           VALUES (?, ?, ?, ?, ?)";
+            if (!isset($content['language']) || !isset($content['subject']) || !isset($content['htmlContent'])) {
+                throw new Exception("Each content item must have language, subject, and htmlContent");
+            }
+
+            $contentSql = "INSERT INTO email_template_content (template_id, language, subject, preheader, html_content, text_content)
+                           VALUES (?, ?, ?, ?, ?, ?)";
             
             $contentStmt = $conn->prepare($contentSql);
             $language = $content['language'];
             $subject = $content['subject'];
+            $preheader = $content['preheader'] ?? '';
             $htmlContent = $content['htmlContent'];
             $textContent = $content['textContent'] ?? '';
             
-            $contentStmt->bind_param("sssss", $templateId, $language, $subject, $htmlContent, $textContent);
+            $contentStmt->bind_param("ssssss", $templateId, $language, $subject, $preheader, $htmlContent, $textContent);
 
             if (!$contentStmt->execute()) {
                 throw new Exception("Content update failed: " . $contentStmt->error);
             }
         }
 
-        // Create new version
+        // Create new version record for history
         $versionSql = "INSERT INTO email_template_versions (template_id, version, content, change_description, created_by, created_date)
                        VALUES (?, ?, ?, ?, ?, ?)";
 
         $versionStmt = $conn->prepare($versionSql);
-        $contentJson = json_encode($body['content']);
-        $changeDesc = $body['changeDescription'] ?? 'Template updated';
-        $lastModifiedBy = $body['lastModifiedBy'] ?? 'system';
+        if (!$versionStmt) {
+            throw new Exception("Version prepare failed: " . $conn->error);
+        }
 
-        $versionStmt->bind_param("ssisss", $templateId, $newVersion, $contentJson, $changeDesc, $lastModifiedBy, $now);
+        $contentJson = json_encode($body['content']);
+        $changeDesc = $body['changeDescription'] ?? 'Content updated';
+        $versionCreatedBy = $body['lastModifiedBy'] ?? 'system';
+
+        $versionStmt->bind_param("sissss", $templateId, $newVersion, $contentJson, $changeDesc, $versionCreatedBy, $now);
 
         if (!$versionStmt->execute()) {
             throw new Exception("Version creation failed: " . $versionStmt->error);

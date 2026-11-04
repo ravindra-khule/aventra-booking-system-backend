@@ -55,6 +55,8 @@ services:
     build:
       context: ../aventra-booking-system-ui
       dockerfile: Dockerfile
+      args:
+        VITE_REACT_APP_API_URL: http://localhost:5500
     container_name: aventra-frontend
     restart: unless-stopped
     ports:

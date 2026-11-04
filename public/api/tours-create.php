@@ -64,8 +64,8 @@ try {
     
     $conn = getDB();
     
-    // Check if title already exists
-    $checkSql = "SELECT id FROM tours WHERE title = ?";
+    // Check if title already exists (ignore soft-deleted tours)
+    $checkSql = "SELECT id FROM tours WHERE title = ? AND deleted_at IS NULL";
     $checkStmt = $conn->prepare($checkSql);
     $checkStmt->bind_param('s', $title);
     $checkStmt->execute();
@@ -75,6 +75,23 @@ try {
         sendJSON(['success' => false, 'error' => 'Tour with this title already exists'], 400);
     }
     $checkStmt->close();
+    
+    // Ensure slug is unique (append suffix if needed)
+    // NOTE: slug has a UNIQUE index covering soft-deleted rows too, so check all rows
+    $slugSql = "SELECT id FROM tours WHERE slug = ?";
+    $slugStmt = $conn->prepare($slugSql);
+    $baseSlug = $slug;
+    $suffix = 2;
+    while (true) {
+        $slugStmt->bind_param('s', $slug);
+        $slugStmt->execute();
+        if ($slugStmt->get_result()->num_rows === 0) {
+            break;
+        }
+        $slug = $baseSlug . '-' . $suffix;
+        $suffix++;
+    }
+    $slugStmt->close();
     
     // Insert new tour
     $insertSql = "INSERT INTO tours (

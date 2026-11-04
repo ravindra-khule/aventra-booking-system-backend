@@ -4,14 +4,33 @@
  * Works for both Docker (env vars) and Hostinger (fallback values)
  */
 
+// Load .env file if present (Hostinger has no env-var UI; Docker already provides real env vars)
+// Existing environment variables always take precedence.
+(function () {
+    $envFile = __DIR__ . '/.env';
+    if (!is_file($envFile)) return;
+    foreach (file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+        $line = trim($line);
+        if ($line === '' || $line[0] === '#' || strpos($line, '=') === false) continue;
+        [$name, $value] = explode('=', $line, 2);
+        $name = trim($name);
+        $value = trim($value, " \t\"'");
+        if ($name !== '' && getenv($name) === false) {
+            putenv("$name=$value");
+            $_ENV[$name] = $value;
+        }
+    }
+})();
+
 // Check if running in Docker (env vars set), otherwise use Hostinger values
 define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
 define('DB_USER', getenv('DB_USER') ?: 'u946701582_aventra');
-define('DB_PASS', getenv('DB_PASS') ?: 'Prismadot@123');
+define('DB_PASS', getenv('DB_PASS') ?: '3*5PZb~aS');
 define('DB_NAME', getenv('DB_NAME') ?: 'u946701582_aventra');
 
-// JWT Secret for authentication
-define('JWT_SECRET', 'xoJGiyVAIyKO4OIf5WOv256EcQN0Blnx7JxyvmCXsCs=');
+// JWT Secret for authentication (env var for JWTHandler + constant for legacy use)
+putenv('JWT_SECRET=BHpuFnqhZJ4bYNzjWG7Sm9o3rcltC2OTvUVRw1I6gDfeEAXMPd0K8axL5Qkysi');
+define('JWT_SECRET', 'BHpuFnqhZJ4bYNzjWG7Sm9o3rcltC2OTvUVRw1I6gDfeEAXMPd0K8axL5Qkysi');
 
 function getDB() {
     // Suppress warnings during connection attempt

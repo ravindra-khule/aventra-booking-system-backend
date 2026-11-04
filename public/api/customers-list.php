@@ -48,7 +48,7 @@ try {
             FROM customers c
             LEFT JOIN bookings b ON c.id = b.customer_id AND b.deleted_at IS NULL
             WHERE c.deleted_at IS NULL
-            GROUP BY c.id, c.first_name, c.last_name, c.email, c.phone, c.address, c.zip_code, c.city, c.country, c.notes, c.last_booking_date, c.created_at
+            GROUP BY c.id
             ORDER BY c.created_at DESC";
     
     $result = $conn->query($sql);

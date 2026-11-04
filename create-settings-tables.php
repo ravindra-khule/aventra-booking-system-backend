@@ -4,13 +4,10 @@
  * Run once: php create-settings-tables.php
  */
 
-$host = 'localhost';
-$user = 'root';
-$pass = '';
-$db = 'aventra_db';
+require_once __DIR__ . '/config.php';
 
 try {
-    $conn = new mysqli($host, $user, $pass, $db);
+    $conn = getDB();
     
     if ($conn->connect_error) {
         die("❌ Connection failed: " . $conn->connect_error);
@@ -20,10 +17,11 @@ try {
     echo "==============================\n\n";
     
     // Create settings table
+    // NOTE: column is `key` to match public/api/settings-*.php endpoints
     $sql = "CREATE TABLE IF NOT EXISTS settings (
         id INT AUTO_INCREMENT PRIMARY KEY,
         category VARCHAR(100) NOT NULL,
-        key_name VARCHAR(255) NOT NULL,
+        `key` VARCHAR(255) NOT NULL,
         value LONGTEXT,
         type ENUM('string', 'number', 'boolean', 'json', 'email', 'url') DEFAULT 'string',
         description TEXT,
@@ -31,7 +29,7 @@ try {
         is_public TINYINT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        UNIQUE KEY unique_category_key (category, key_name),
+        UNIQUE KEY unique_category_key (category, `key`),
         INDEX idx_category (category)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
     
@@ -41,17 +39,21 @@ try {
     echo "✅ Settings table created/exists\n";
     
     // Create settings data table for audit trail
+    // NOTE: column names match the INSERT in public/api/settings-update.php
     $sql = "CREATE TABLE IF NOT EXISTS settings_audit (
         id INT AUTO_INCREMENT PRIMARY KEY,
         setting_id INT,
-        user_id INT,
+        category VARCHAR(100),
+        `key` VARCHAR(255),
         old_value LONGTEXT,
         new_value LONGTEXT,
-        action VARCHAR(50),
+        changed_by INT,
         ip_address VARCHAR(45),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        user_agent VARCHAR(255),
+        changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_setting_id (setting_id),
-        INDEX idx_created_at (created_at)
+        INDEX idx_category (category),
+        INDEX idx_changed_at (changed_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
     
     if (!$conn->query($sql)) {
@@ -72,16 +74,27 @@ try {
         ['Company', 'country', 'Sweden', 'string', 'Company country', 0, 0],
         ['Company', 'vat_number', '', 'string', 'Company VAT number', 0, 0],
         ['Company', 'logo_url', '', 'url', 'Company logo URL', 0, 0],
+        ['Company', 'logo_filename', '', 'string', 'Company logo file name', 0, 0],
+        ['Company', 'registration_number', '', 'string', 'Business registration number', 0, 0],
+        ['Company', 'statutory_ids', '', 'string', 'Additional statutory IDs', 0, 0],
+        ['Company', 'bank_name', '', 'string', 'Bank name', 0, 0],
+        ['Company', 'bank_account_number', '', 'string', 'Bank account number', 0, 0],
+        ['Company', 'bank_swift_code', '', 'string', 'IFSC/SWIFT code', 0, 0],
+        ['Company', 'bank_branch_name', '', 'string', 'Bank branch name', 0, 0],
+        ['Company', 'social_media', '[]', 'json', 'Social media links (JSON array)', 0, 1],
+        ['Company', 'business_hours', '[]', 'json', 'Business hours (JSON array)', 0, 1],
+        ['Company', 'about_text', '', 'string', 'Company about/description text', 0, 1],
+        ['Company', 'language_content', '[]', 'json', 'Per-language company content (JSON array)', 0, 1],
         
         // Email Configuration
-        ['Email', 'smtp_host', 'smtp.gmail.com', 'string', 'SMTP server host', 1, 0],
-        ['Email', 'smtp_port', '587', 'number', 'SMTP server port', 0, 0],
-        ['Email', 'smtp_username', '', 'email', 'SMTP username', 1, 0],
-        ['Email', 'smtp_password', '', 'string', 'SMTP password', 1, 0],
-        ['Email', 'from_email', 'noreply@swett.se', 'email', 'Default from email', 0, 0],
-        ['Email', 'from_name', 'Swett Booking System', 'string', 'Default from name', 0, 0],
-        ['Email', 'reply_to_email', 'support@swett.se', 'email', 'Reply-to email', 0, 0],
-        ['Email', 'service_provider', 'sendgrid', 'string', 'Email service (sendgrid/mailgun/smtp)', 0, 0],
+        ['Email', 'smtp_host', 'smtp.hostinger.com', 'string', 'SMTP server host', 1, 0],
+        ['Email', 'smtp_port', '465', 'number', 'SMTP server port (465 SSL / 587 STARTTLS)', 0, 0],
+        ['Email', 'smtp_username', '', 'email', 'SMTP username (full mailbox e.g. name@prismadot.com)', 1, 0],
+        ['Email', 'smtp_password', '', 'string', 'SMTP mailbox password', 1, 0],
+        ['Email', 'from_email', 'noreply@prismadot.com', 'email', 'Default from email', 0, 0],
+        ['Email', 'from_name', 'Aventra Booking', 'string', 'Default from name', 0, 0],
+        ['Email', 'reply_to_email', 'support@prismadot.com', 'email', 'Reply-to email', 0, 0],
+        ['Email', 'service_provider', 'smtp', 'string', 'Email service (sendgrid/mailgun/smtp)', 0, 0],
         ['Email', 'sendgrid_api_key', '', 'string', 'SendGrid API key', 1, 0],
         ['Email', 'mailgun_domain', '', 'string', 'Mailgun domain', 1, 0],
         ['Email', 'mailgun_api_key', '', 'string', 'Mailgun API key', 1, 0],
@@ -105,9 +118,15 @@ try {
         // Notifications
         ['Notification', 'booking_confirmation_enabled', '1', 'boolean', 'Send booking confirmation', 0, 0],
         ['Notification', 'booking_reminder_days', '7,3,1', 'string', 'Reminder days before tour', 0, 0],
+        ['Notification', 'booking_reminder_hours', '24', 'string', 'Hours before departure for reminders (comma separated)', 0, 0],
         ['Notification', 'payment_reminder_enabled', '1', 'boolean', 'Send payment reminders', 0, 0],
         ['Notification', 'cancellation_email_enabled', '1', 'boolean', 'Send cancellation emails', 0, 0],
         ['Notification', 'admin_notification_email', '', 'email', 'Admin notification email', 0, 0],
+        ['Notification', 'notify_customer_enabled', '1', 'boolean', 'Send lifecycle emails to the customer', 0, 0],
+        ['Notification', 'notify_client_enabled', '1', 'boolean', 'Send lifecycle emails to the client/business', 0, 0],
+        ['Notification', 'notify_admin_enabled', '0', 'boolean', 'Send lifecycle emails to the admin', 0, 0],
+        ['Notification', 'client_notification_email', '', 'email', 'Client/business notification email (defaults to Company email)', 0, 0],
+        ['Notification', 'disabled_events', 'booking_cancelled_user,booking_cancelled_client,booking_rescheduled,booking_reminder', 'string', 'Lifecycle events that never send email (comma separated)', 0, 0],
         
         // System
         ['System', 'site_name', 'Swett Booking System', 'string', 'Application name', 0, 1],
@@ -129,7 +148,7 @@ try {
     ];
     
     foreach ($defaultSettings as [$category, $key, $value, $type, $description, $encrypted, $public]) {
-        $sql = "INSERT IGNORE INTO settings (category, key_name, value, type, description, is_encrypted, is_public)
+        $sql = "INSERT IGNORE INTO settings (category, `key`, value, type, description, is_encrypted, is_public)
                 VALUES (?, ?, ?, ?, ?, ?, ?)";
         $stmt = $conn->prepare($sql);
         if (!$stmt) {

@@ -20,6 +20,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
  */
 
 require_once __DIR__ . '/../../config.php';
+$__mailPath = __DIR__ . '/../../lib/MailService.php';
+if (!is_file($__mailPath)) {
+    sendJSON(['success' => false, 'error' => 'MailService library is not installed on the server'], 500);
+}
+require_once $__mailPath;
 
 try {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -38,7 +43,7 @@ try {
     $testEmail = $body['testEmail'];
 
     // Get template content
-    $contentSql = "SELECT subject, html_content FROM email_template_content WHERE template_id = ? AND language = ?";
+    $contentSql = "SELECT subject, html_content, text_content FROM email_template_content WHERE template_id = ? AND language = ?";
     $contentStmt = $conn->prepare($contentSql);
     $contentStmt->bind_param("ss", $templateId, $language);
     $contentStmt->execute();
@@ -51,22 +56,24 @@ try {
     $contentRow = $contentResult->fetch_assoc();
     $subject = $contentRow['subject'];
     $htmlContent = $contentRow['html_content'];
+    $textContent = $contentRow['text_content'] ?? null;
 
     // Replace placeholders with sample data if provided
     if (isset($body['placeholders']) && is_array($body['placeholders'])) {
         foreach ($body['placeholders'] as $placeholder => $value) {
-            $htmlContent = str_replace("{{$placeholder}}", $value, $htmlContent);
-            $subject = str_replace("{{$placeholder}}", $value, $subject);
+            $htmlContent = str_replace('{{' . $placeholder . '}}', (string)$value, $htmlContent);
+            $subject = str_replace('{{' . $placeholder . '}}', (string)$value, $subject);
         }
     }
 
-    // Send test email
-    $headers = [
-        'Content-Type: text/html; charset=UTF-8',
-        'From: test@aventrabooking.com'
-    ];
+    // Send test email via configured SMTP (Hostinger)
+    $sendResult = sendSmtpEmail($conn, $testEmail, $subject, $htmlContent, $textContent);
+    $result = $sendResult['success'];
 
-    $result = mail($testEmail, $subject, $htmlContent, implode("\r\n", $headers));
+    $result = @mail($testEmail, $subject, $htmlContent, implode("\r\n", $headers));
+
+    $now = date('Y-m-d H:i:s');
+    $createdBy = $body['createdBy'] ?? 'system';
 
     if ($result) {
         // Log test email sent
@@ -74,9 +81,7 @@ try {
                    VALUES (?, 'TEST_EMAIL_SENT', ?, ?, ?)";
 
         $logStmt = $conn->prepare($logSql);
-        $now = date('Y-m-d H:i:s');
         $details = json_encode(['email' => $testEmail, 'language' => $language]);
-        $createdBy = $body['createdBy'] ?? 'system';
 
         $logStmt->bind_param("ssss", $templateId, $details, $createdBy, $now);
         $logStmt->execute();
@@ -85,15 +90,43 @@ try {
             'success' => true,
             'data' => [
                 'message' => 'Test email sent successfully',
-                'email' => $testEmail
+                'email' => $testEmail,
+                'simulated' => false
             ]
         ]);
-    } else {
-        sendJSON([
-            'success' => false,
-            'error' => 'Failed to send test email'
-        ], 500);
     }
+
+    // Mail transport unavailable (e.g. local Docker without MTA) - save the
+    // rendered email to disk so it can still be inspected, and log it.
+    $emailsDir = __DIR__ . '/../../storage/emails';
+    if (!is_dir($emailsDir)) {
+        @mkdir($emailsDir, 0755, true);
+    }
+
+    $fileName = 'test-' . preg_replace('/[^a-zA-Z0-9_-]/', '-', $templateId) . '-' . date('Ymd-His') . '.html';
+    @file_put_contents(
+        $emailsDir . '/' . $fileName,
+        "<!-- To: $testEmail -->\n<!-- Subject: $subject -->\n" . $htmlContent
+    );
+
+    $logSql = "INSERT INTO email_templates_audit_log (template_id, action, details, created_by, created_date)
+               VALUES (?, 'TEST_EMAIL_RENDERED', ?, ?, ?)";
+
+    $logStmt = $conn->prepare($logSql);
+    $details = json_encode(['email' => $testEmail, 'language' => $language, 'simulated' => true, 'file' => $fileName]);
+
+    $logStmt->bind_param("ssss", $templateId, $details, $createdBy, $now);
+    $logStmt->execute();
+
+    sendJSON([
+        'success' => true,
+        'data' => [
+            'message' => "Mail transport unavailable in this environment - rendered email saved to storage/emails/$fileName",
+            'email' => $testEmail,
+            'simulated' => true,
+            'savedTo' => "storage/emails/$fileName"
+        ]
+    ]);
 
 } catch (Exception $e) {
     debugLog('Email Template Send Test Error', ['error' => $e->getMessage()]);

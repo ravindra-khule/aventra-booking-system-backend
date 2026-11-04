@@ -52,6 +52,12 @@ try {
     $versionRow = $versionResult->fetch_assoc();
     $content = json_decode($versionRow['content'], true);
 
+    if (!is_array($content)) {
+        sendJSON(['success' => false, 'error' => 'Stored version content is invalid'], 500);
+    }
+
+    $conn->begin_transaction();
+
     // Get current version
     $currentSql = "SELECT version FROM email_templates WHERE id = ?";
     $currentStmt = $conn->prepare($currentSql);
@@ -69,17 +75,21 @@ try {
 
     // Restore content
     foreach ($content as $contentItem) {
-        $insertContentSql = "INSERT INTO email_template_content (template_id, language, subject, html_content, text_content)
-                             VALUES (?, ?, ?, ?, ?)";
+        $insertContentSql = "INSERT INTO email_template_content (template_id, language, subject, preheader, html_content, text_content)
+                             VALUES (?, ?, ?, ?, ?, ?)";
         
         $insertContentStmt = $conn->prepare($insertContentSql);
         $language = $contentItem['language'];
         $subject = $contentItem['subject'];
+        $preheader = $contentItem['preheader'] ?? '';
         $htmlContent = $contentItem['htmlContent'];
         $textContent = $contentItem['textContent'] ?? '';
         
-        $insertContentStmt->bind_param("sssss", $templateId, $language, $subject, $htmlContent, $textContent);
-        $insertContentStmt->execute();
+        $insertContentStmt->bind_param("ssssss", $templateId, $language, $subject, $preheader, $htmlContent, $textContent);
+        
+        if (!$insertContentStmt->execute()) {
+            throw new Exception("Content restore failed: " . $insertContentStmt->error);
+        }
     }
 
     // Create new version record
@@ -90,7 +100,7 @@ try {
     $contentJson = json_encode($content);
     $changeDesc = "Restored to version $versionNumber";
 
-    $createVersionStmt->bind_param("ssisss", $templateId, $newVersion, $contentJson, $changeDesc, $restoredBy, $now);
+    $createVersionStmt->bind_param("sissss", $templateId, $newVersion, $contentJson, $changeDesc, $restoredBy, $now);
 
     if (!$createVersionStmt->execute()) {
         throw new Exception("Version creation failed: " . $createVersionStmt->error);
@@ -100,7 +110,12 @@ try {
     $updateSql = "UPDATE email_templates SET version = ?, last_modified = ?, last_modified_by = ? WHERE id = ?";
     $updateStmt = $conn->prepare($updateSql);
     $updateStmt->bind_param("isss", $newVersion, $now, $restoredBy, $templateId);
-    $updateStmt->execute();
+
+    if (!$updateStmt->execute()) {
+        throw new Exception("Version update failed: " . $updateStmt->error);
+    }
+
+    $conn->commit();
 
     sendJSON([
         'success' => true,
@@ -111,6 +126,9 @@ try {
     ]);
 
 } catch (Exception $e) {
+    if (isset($conn)) {
+        @$conn->rollback();
+    }
     debugLog('Email Template Restore Error', ['error' => $e->getMessage()]);
     sendJSON(['success' => false, 'error' => $e->getMessage()], 500);
 }

@@ -51,7 +51,7 @@ try {
     $row = $result->fetch_assoc();
 
     // Get template content for each language
-    $contentSql = "SELECT language, subject, html_content, text_content FROM email_template_content WHERE template_id = ?";
+    $contentSql = "SELECT language, subject, preheader, html_content, text_content FROM email_template_content WHERE template_id = ?";
     $contentStmt = $conn->prepare($contentSql);
     $contentStmt->bind_param("s", $templateId);
     $contentStmt->execute();
@@ -62,6 +62,7 @@ try {
         $content[] = [
             'language' => $contentRow['language'],
             'subject' => $contentRow['subject'],
+            'preheader' => $contentRow['preheader'],
             'htmlContent' => $contentRow['html_content'],
             'textContent' => $contentRow['text_content']
         ];
